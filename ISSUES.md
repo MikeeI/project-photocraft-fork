@@ -30,7 +30,6 @@ Next finding ID: ISSUE-039
 | [ISSUE-015](issues/ISSUE-015.md) | recovery: delete snapshots before durable replacement | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce recovery snapshot deletion | Not published. |
 | [ISSUE-016](issues/ISSUE-016.md) | file open: script events retarget the imported save path | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce open-event path retargeting | Not published. |
 | [ISSUE-017](issues/ISSUE-017.md) | autosave: queue acknowledgment suppresses failed-save retries | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce failed autosave suppression | Not published. |
-| [ISSUE-018](issues/ISSUE-018.md) | session: colliding persisted document IDs share autosave ownership | Submitted | Pull-Request-Implementation | New-pull-request | High | Await upstream identity review | https://github.com/storytold/photocraft/pull/114 |
 | [ISSUE-019](issues/ISSUE-019.md) | native storage: shared temporary files break concurrent publication | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce overlapping native writers | Not published. |
 | [ISSUE-020](issues/ISSUE-020.md) | close workflow: stale dirty list misses smart-object parent edits | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce stale close prompt list | Not published. |
 | [ISSUE-021](issues/ISSUE-021.md) | smart objects: failed save-back still removes the edited child | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce failed smart-child close | Not published. |
@@ -59,3 +58,4 @@ Next finding ID: ISSUE-039
 | [ISSUE-004](issues/archive/ISSUE-004.md) | compose: repeated effect metadata derivation | Pull-Request-Implementation | New-pull-request | Medium | Not-Worth-Pursuing | Not published. |
 | [ISSUE-010](issues/archive/ISSUE-010.md) | compose: unused proxy source-column copies | Pull-Request-Implementation | New-pull-request | Medium | Not-Worth-Pursuing | Not published. |
 | [ISSUE-014](issues/archive/ISSUE-014.md) | file save: destructive overwrite before successful publication | Pull-Request-Implementation | New-pull-request | High | Fixed-Elsewhere | https://github.com/storytold/photocraft/pull/230 |
+| [ISSUE-018](issues/archive/ISSUE-018.md) | session: colliding persisted document IDs share autosave ownership | Pull-Request-Implementation | New-pull-request | High | Merged | https://github.com/storytold/photocraft/pull/114 |

@@ -1,6 +1,6 @@
 # ISSUE-018 — session: colliding persisted document IDs share autosave ownership
 
-State: Submitted
+State: Archived
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: https://github.com/storytold/photocraft/pull/114
@@ -8,7 +8,7 @@ Contribution-Priority: High
 Root-Cause-Confidence: High
 Finding-Category: Correctness
 Created: 2026-10-05
-Updated: 2026-10-05
+Updated: 2026-10-06
 Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 
 ## Root-Cause
@@ -34,10 +34,10 @@ This proves suppression at the autosave ownership boundary, not a completed disk
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05.
-`ISSUE-013` concerns LUT cleanup on reopening; it does not own simultaneous document-identity collisions.
-`ISSUE-019` concerns overlapping writer publication rather than session admission.
-Upstream inventory covered all 102 issue/PR records, relevant discussions, and public releases; no matching root cause was found.
+Coverage: the original 102-record upstream inventory and current PR #114 thread/diff checked on 2026-10-06.
+PR #114 by @MikeeI merged to `main` at 2026-10-05T05:24:19Z as `18631641826bed9a0b6481e11d40185059280f95`.
+It implements this finding's same-session identity invariant and caller migration; it does not establish cross-process recovery isolation.
+`ISSUE-013` concerns LUT cleanup; `ISSUE-019` concerns overlapping writer publication, not session admission.
 GitHub Discussions are disabled; project Discord history was inaccessible.
 
 ## Proposed-Change
@@ -65,6 +65,7 @@ The isolated focused post-fix UI regression passed; the full engine/UI verificat
 [S] Independent xhigh review approved the admission invariant and SmartLink caller migration.
 The review found no further identity-dependent admission caller; semantic references were unavailable.
 The regression proves distinct autosave requests, not two recovered on-disk bundles.
+[S] Current `upstream/main@47f4abfed49e0d2f5b9277287b27dee632530ba4` contains unique-ID admission and uses the admitted child ID when adding its SmartLink (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/engine/src/lib.rs#L300-L315; https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/engine/src/smart_cmds.rs#L618-L632).
 
 ## Publication-Blockers
 
@@ -72,9 +73,9 @@ None.
 
 ## Next-Action
 
-Summary: Await upstream identity review
-Action: Address review feedback on the submitted session identity correction.
-Done-When: Upstream closes or merges the PR.
+Summary: —
+Action: None.
+Done-When: None.
 
 ## Pull-Request-Implementation
 
@@ -133,3 +134,10 @@ If reports like this are not useful to the project, please let me know and I wil
 My intent is to help without wasting maintainer time or energy or discouraging their work.
 
 Thank you for your work.
+
+## Archive
+
+Archive-Reason: Merged
+Detail: None.
+Evidence: https://github.com/storytold/photocraft/pull/114; https://github.com/storytold/photocraft/commit/18631641826bed9a0b6481e11d40185059280f95
+Checked: 2026-10-06
