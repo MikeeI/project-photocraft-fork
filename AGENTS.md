@@ -1,115 +1,275 @@
-# AGENTS.md: guide for AI agents and contributors
+# project-photocraft-fork
 
-PhotoCraft is an open-source, native, Photoshop-comparable image editor written in **Rust only** (no JavaScript or TypeScript). The product name is always written **PhotoCraft** (`{Function}Craft` in PascalCase, like its siblings ArtCraft, ArtCraftX, DesignCraft, DrawCraft, EffectCraft, FilmCraft, LightCraft, PrintCraft) in user-facing text: UI, window titles, About, installers, release names, docs prose. Machine names stay lowercase: crates (`photocraft-*`), binaries, file names, ids (`ai.storyteller.photocraft`). Standards and learnings shared across the crafting apps live in `../craftrules` (read its `README.md`). Contribute reusable learnings there, never code; repos don't share code. The goal is 1:1 Photoshop parity (same menus, shortcuts, behaviour and file fidelity) with better performance, and every feature drivable by agents. Read this file first, then `docs/`.
+<essential-rule>
+AGENTS.md is the sole authoritative project context file.
+Read and edit AGENTS.md directly.
+</essential-rule>
 
-## 1. Orientation (5 minutes)
+## Development Rules
 
-| Read | Why |
-|---|---|
-| `docs/architecture.md` | Crate map, dependency layers, the engine/UI seam, document model |
-| `docs/development.md` | Build, test, run, drive the app programmatically, debug tricks |
-| `docs/contributing.md` | Rules: clean-room, tests, layering, style, commits; the "add a command" checklist |
-| `docs/control-protocol.md` | JSON control channel: how agents drive and screenshot the running app |
-| `docs/ui-design.md` | Design tokens, themes, widgets, and how to match Photoshop's look |
-| `docs/roadmap.md` | Milestones and the **current focus** |
-| `docs/parity.md` | Generated list of every Photoshop menu item, live or missing |
-| `crates/<name>/README.md` (where present) | Public API of that crate |
+Before launching agents, apply skill-xray, skill-expert, and skill-brutal to the task.
+Surface expert-level issues, non-obvious issues, blindspots, stale assumptions, and hidden dependencies.
+Also surface missed constraints, edge cases, false positives, verification gaps, overclaims, and weak assumptions.
+Identify improvement potential, inefficiencies, and what is wrong without softening.
+Use these findings to design safe slices, sequencing, checks, and boundaries for complete agent results.
 
-## 2. Workspace map
+Every agent prompt must require skill-xray, skill-expert, and skill-brutal for the assigned scope before acting.
+It must surface non-obvious issues, blindspots, stale assumptions, hidden dependencies, and edge cases.
+It must also surface verification gaps, overclaims, failure modes, weak assumptions, and what is wrong.
+The agent must adjust its approach, challenge its assumptions, and flag misleading or incomplete output risks.
 
-```text
-crates/
-  geom cms color raster      L0 foundation (geometry, ICC colour management, pixel formats + blend math, COW tiles)
-  psd codecs                 L0 standalone format crates (no workspace deps; publishable)
-  doc                        L1 document model (layers, masks, adjustments, effects, smart objects: pure data)
-  ops paint algo text vector L2 history, brush engine, imaging algorithms, type engine, paths/shapes
-  compose gpu format         L3 CPU compositor (the oracle), wgpu compositor, .pcraft native format
-  io plugins                 L4 document <-> PSD / flat formats; sandboxed WebAssembly plug-ins
-  engine                     L5 Session + command registry (every action is a command)
-  ui-egui automation         L6 egui shell (thin: all actions go through the engine); MCP server
-  testkit                    test helpers
-apps/
-  photocraft                 desktop app (eframe/wgpu), TCP control server
-  photocraft-cli             headless CLI (convert/info/run/batch/commands/mcp)
-  photocraft-web             the same app in the browser (trunk + wasm-bindgen)
-xtask/                       cargo xtask layers | wasm | ci | stats | corpus | parity
-```
+Implementation assignments must cover existing patterns, callers, exported-symbol consumers, and failure modes.
+They must also cover concurrency safety and lifecycle cleanup.
+Each assignment must state `Test decision: none` or `Test decision: update`.
+`update` must name the exact existing test that follows an intentional contract change.
+Never request new tests.
+Prohibit broad edits, unrelated cleanup, and unassigned files.
 
-**Layering is enforced** by `cargo xtask layers`. A crate may depend only on lower layers. `psd`, `codecs` and `cms` depend on nothing in the workspace. Nothing below `ui-egui` may use egui, eframe, winit or rfd. A new crate must be registered in `xtask/src/layers.rs`.
+No vague agents.
+Each assignment needs exact targets, non-goals, evidence anchors, acceptance criteria, and an output contract.
 
-## 3. Golden rules
+Commit completed units continuously.
+Before each commit, use skill-git-commit-format to determine whether staged effects are one coherent unit.
+The skill owns commit-message format and evidence.
+After the boundary is valid, run the repository-owned commit and push workflow.
+Do not commit every trivial edit immediately or defer unrelated work into one end-of-session commit.
 
-### Never crash (outranks feature work)
+Every project-level quality command is quiet by default and verbose on demand.
+This policy applies regardless of language or toolchain.
+It covers Make targets, package scripts, Python CLIs, shell quality gates, and test runners.
+Successful checks print only compact status such as `format: ok`, `lint: ok`, `test: ok`, or `check: ok`.
+On failure, exit non-zero and print the failing step, exit code, and enough output to act without rerunning.
+Full raw output must remain available through `--verbose`, `VERBOSE=1`, or the underlying tool's verbose mode.
+New quality commands and future language setup must follow this policy instead of inventing another logging contract.
 
-People trust PhotoCraft with their work, and a crash loses it. A malformed file, a bad command or MCP param, a corrupt settings file, an odd keystroke or a full disk must produce an error the user or agent can act on, never a panic. Don't ship a feature by adding a panic path; fix a crash before building on top of it. The shared standard is `../craftrules/standards/never-crash.md`.
+# Repository Guidelines
 
-- **Non-test code never panics.** No `unwrap()`, `expect()`, `panic!`, `unreachable!`, `todo!` or `unimplemented!`. Return the crate's error type and propagate with `?`; use `ok_or(..)?`, `let .. else { return Err(..) }`, `if let`, or `unwrap_or*` where a fallback is truly correct (never one that silently corrupts a document). Unfinished features return an "unsupported" error. The only exception is a provably infallible literal: `#[allow(clippy::expect_used)]` plus `.expect("why it can't fail")`.
-- **No `unsafe`.** The workspace sets `unsafe_code = "forbid"`.
-- **Input-derived numbers are hostile.** Use `get()` rather than `[i]`/`[a..b]` for indices from files, params, selections or arithmetic on them; slice strings only at char boundaries; use `checked_*`/`saturating_*` for lengths, offsets and counts; guard division by zero and NaN/inf casts; cap allocations sized by input.
-- **Bound recursion** with depth limits or seen-sets (documents can be deep or cyclic).
-- **Don't cascade.** Handle lock poisoning (`lock().unwrap_or_else(PoisonError::into_inner)`) and treat thread joins as `Result`s.
-- **Last-resort guard.** The app shell must catch an escaped panic around command dispatch and file import/export, reports it as an error and keeps the document. It's a safety net, not a licence to panic. Keep `panic = "unwind"`.
-- **Prove it.** Every crash fix comes with a small synthetic regression test that panicked before the fix.
-- **Enforced by clippy.** `clippy.toml` allows `unwrap`/`expect`/`panic`/indexing in tests only. Clean crates carry `#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]`; new crates start with it.
+## Project Overview
 
-1. **Everything is a command.** New user-visible behaviour = a command in the engine (`crates/engine/src/*_cmds.rs`, registered in `commands.rs`) with id, label, menu path, shortcut, params doc, `enabled` and `run`, plus tests. The UI, CLI, control channel and MCP all dispatch commands by id. Use the **exact id from `crates/ui-egui/src/menu_catalog.rs`** and the menu item goes live automatically. Only pure view/window state (zoom, panels, screen mode) belongs to the shell (`menus.rs` `UI_COMMANDS`).
-2. **No format or colour assumptions.** Bit depth (8/16/32f) and colour model (RGB/Gray/CMYK/Lab…) are runtime data. Never introduce a `u8`-only pixel path in public APIs. Never assume sRGB: colour conversions go through `photocraft-cms` (`Transform`, `transform::cached`). Test at several depths.
-3. **Clean-room.** We studied Photoshop and other proprietary editors for *behaviour and look only*. Never copy their code, shaders, profiles or assets. Implement from public specs (Adobe PSD spec, ICC, ISO 32000 blend modes, papers) and observation. Third-party assets must be permissively licensed, keep their license file next to them, and get a row in `ATTRIBUTION.md` (path, title, author, source, license) in the same change; so do original assets. The ArtCraft logos in `docs/brand/` are not open source (`docs/brand/LICENSE-brand.txt`).
-4. **Tests are the gate.** Every change comes with tests. Format crates use round-trip, synthetic-generator, oracle and fuzz tests. Keep the PSD corpus results and the parity floor (`crates/ui-egui/src/parity.rs`) from regressing.
-5. **The UI is thin and data-driven.** UI state lives in `ui-egui/src/state.rs` (serde), so the control channel can read and drive it. Colours and radii come from `theme::Tokens`, never hard-coded.
-6. **Verify UI changes visually.** Render offscreen with `cargo run -p photocraft-ui-egui --example snapshot` (no window, no focus stealing), or launch with `--control` and take `ui.screenshot`. Look at the PNG. Demo images must be public-domain art, never personal photos. When fetching assets, never put a person's name, email or other personal details in requests (User-Agent, headers, URLs); use a generic `Photocraft-dev` User-Agent.
-7. **Never break wasm.** L0–L6 must `cargo check --target wasm32-unknown-unknown` (run `cargo xtask wasm`). File-system code is `cfg(not(target_arch = "wasm32"))` or goes through the platform services.
-8. **Performance is a feature.** Benchmark heavy operations on a 24–36 MP image in release. Work per tile in parallel (rayon), skip empty tiles, never scan a full surface per frame (cache per revision), and record before/after timings in the dev log.
+PhotoCraft is a native, open-source, Photoshop-comparable image editor written only in Rust.
+Its goal is 1:1 Photoshop menus, shortcuts, behavior, and file fidelity, with better performance and agent-driven features.
+Use **PhotoCraft** in user-facing text and lowercase machine identifiers such as `photocraft-*` and `ai.storyteller.photocraft`.
+Related crafting apps follow the `{Function}Craft` naming convention but do not share code.
 
-9. **Never panic on input** (see *Never crash* above). A command's `run` closure and anything it calls must return `Err`, never panic, for *any* params or document state: validate params, check bounds before indexing or dividing, and reject absurd sizes before allocating. The `panic_hunt` integration test fuzzes every command with adversarial params and must stay green.
+## Fork & Upstream Contribution Intent
 
-## 4. Picking work
+- Official upstream: [storytold/photocraft](https://github.com/storytold/photocraft).
+- This checkout is [MikeeI/project-photocraft-fork](https://github.com/MikeeI/project-photocraft-fork), not an independent product.
+- The goal is evidence-backed upstream issues, comments, and pull requests, favoring small, high-value corrections.
+- `origin` is `git@github.com:MikeeI/project-photocraft-fork.git`.
+- `upstream` is `git@github.com:storytold/photocraft.git`; the contribution base is `upstream/main`.
+- Work in `personal`, tracking `origin/personal`; this branch owns fork-only context and contribution tracking.
+- Keep `main` free of personal commits; create upstream contribution branches or worktrees from current `upstream/main`.
+- Never base upstream pull requests on `personal` or include its tracking commits in contribution diffs.
+- `ISSUES.md` owns the compact finding overview and global allocator.
+- Each `issues/ISSUE-NNN.md` owns one root cause's complete durable record.
+- `FORMAT.md` owns research, drafting, authorization, approval, lifecycle, and publication rules.
+- Apply `skill-fork-contribution-tracking` for ledger, personal-branch, and upstream handoff work.
+- Apply `skill-maintainer-communication` before external issues, pull requests, reviews, comments, or discussions.
+- Apply `skill-semantic-compression-3` when authoring tracking content.
+- Apply `skill-git-commit-format`, respecting explicit upstream contribution conventions.
+- Search existing work first and follow current upstream templates and disclosure rules.
+- Recommend a pull request when a bounded verified fix is ready and no active implementation owns it.
+- Otherwise recommend a comment, new issue, or continued investigation according to the evidence.
+- Never choose `Authorized-Work` or `Publication-Target` on the user's behalf.
+- `Research-and-Reporting` permits research, issues, and comments, but no source implementation.
+- `Pull-Request-Implementation` authorizes only the implementation scope recorded for that finding.
+- Reproduce claimed bugs against current upstream and run the narrowest conclusive verification.
+- Publish one coherent root cause per issue, comment, or pull request.
+- Keep fork-only context, ledgers, configuration, and personal commits out of upstream contribution diffs.
 
-Priorities: important infrastructure first, then low-hanging parity, then the long tail.
+## Finding and Contribution Ledger
 
-1. `docs/roadmap.md` → **Current focus**.
-2. `cargo xtask parity` → `docs/parity.md` lists every missing menu item, grouped by menu. Low-hanging fruit is usually a missing command whose algorithm already exists in `algo`, `paint`, `vector` or `text`.
-3. `log/devlog.md` → the "Still open" bullets of recent entries.
+- Read root `ISSUES.md` at the start of every agent session before repository work.
+- `Next finding ID` in `ISSUES.md` is the sole global allocator; start with `ISSUE-001`.
+- Read `FORMAT.md` and the selected issue record before contribution-tracking work.
+- Keep open records in `issues/`; archived records belong in `issues/archive/`.
+- Read archived records only when selected by the user or needed for a plausible duplicate comparison.
+- Before adding a finding, search the index and relevant records for the same symptom or root cause.
+- Allocate `Next finding ID`, create the record, add its index row, and increment the allocator together.
+- IDs remain permanent; never reuse, renumber, or scope them by subsystem, status, session, or contribution type.
+- Update the record and index together after state, authorization, target, priority, next action, or reference changes.
+- Every record follows `FORMAT.md`; correct projection disagreements from the authoritative issue record.
+- New findings use `State: Investigating`, `Authorized-Work: Not-Selected`, and `Publication-Target: Not-Selected`.
+- Set `External-Reference: Not published.` until an external reference exists.
+- Keep findings Investigating until currentness, prior art, impact, and correction value are evidence-backed.
+- Clone detectors, AST matches, text similarity, shared names, and TODOs produce candidates only.
+- Duplication findings require shared change pressure, realistic drift, and simpler consolidation.
+- The user selects each finding's `Authorized-Work`.
+- `Research-and-Reporting` must not implement the finding.
+- Authorized implementation stays within recorded scope after research resolves callers and failure modes.
+- Pull-request work must verify behavior, commit, push, and reach `PR-Ready` before publication.
+- Show the exact draft and target before publishing to official upstream.
+- Publish only after user approval of that exact current draft and target.
+- Any draft or target change requires showing the complete current draft and target again before publication.
+- Record the final external URL immediately after publication.
+- Run the skill's read-only validator after every ledger mutation.
+- Keep `FORMAT.md`, `ISSUES.md`, `issues/`, and fork-only `AGENTS.md` changes out of upstream contribution diffs.
 
-When parity rises, raise `FLOOR` in `crates/ui-egui/src/parity.rs` (never lower it).
+### External publication approval
 
-## 5. Before you finish a task
+External issue, comment, review, discussion, and pull request writes require approval.
+Before publication, read current contribution guidance and explain applicable project policy.
+The human must be able to review and own every submission statement.
+Fork commits, pushes, tracking updates, and source implementation follow the active repository contract.
+
+## Architecture & Data Flow
+
+UI, CLI, authenticated TCP control, and MCP dispatch engine commands by ID into a session and document model.
+The CPU compositor is the reference oracle; the wgpu compositor accelerates supported rendering.
+Document import/export goes through `photocraft-io`; `photocraft-format` owns lossless `.pcraft` persistence.
+The browser uses the same Rust UI through eframe, WebGPU/WebGL2, and generated wasm-bindgen glue.
+Never hand-write JavaScript or TypeScript for this project.
+
+### Key Directories
+
+- `crates/geom,cms,color,raster`: L0 geometry, ICC management, pixel formats, blend math, and COW tiles.
+- `crates/psd,codecs`: standalone formats without workspace dependencies.
+- `crates/doc`: L1 pure-data documents, layers, masks, adjustments, effects, and smart objects.
+- `crates/ops,paint,algo,text,vector`: L2 history, brushes, imaging, typography, and shapes.
+- `crates/compose,gpu,format`: L3 CPU/GPU composition and native persistence.
+- `crates/io,plugins`: L4 document interchange and sandboxed WebAssembly plugins.
+- `crates/engine`: L5 sessions and command registry.
+- `crates/ui-egui,automation`: L6 UI shell and MCP automation.
+- `crates/testkit`: test helpers; `crates/raw`: camera RAW support.
+- `apps/photocraft`: desktop app and TCP control server.
+- `apps/photocraft-cli`: headless conversion, inspection, batch actions, and MCP.
+- `apps/photocraft-web`: Trunk/wasm-bindgen browser app.
+- `xtask/`: repository-owned layering, CI, wasm, corpus, parity, statistics, and release commands.
+- `packaging/`: platform installers; `assets/`: fonts, icons, and dictionaries.
+
+`cargo xtask layers` enforces the dependency graph; register new crates in `xtask/src/layers.rs`.
+Use lower layers and only the explicit intra-layer dependencies permitted by that table.
+`psd`, `codecs`, and `cms` have no workspace dependencies.
+Nothing below the UI layer may depend on egui, eframe, winit, or rfd.
+
+## Development Commands
+
+Run commands from the workspace root unless stated otherwise.
 
 ```sh
-cargo test -p <crates you touched>
-cargo clippy -p <crates> --all-targets -- -D warnings
+cargo run --release -p photocraft -- path/to/image.psd
+cargo run -p photocraft-cli -- commands --filter blur
+cargo test -p <affected-crate>
+cargo clippy -p <affected-crate> --all-targets -- -D warnings
 cargo xtask layers
-cargo xtask wasm            # if you touched L0–L6
-cargo xtask parity          # if you added commands; commit the regenerated docs/parity.md
-cargo test -p photocraft-engine --test panic_hunt -- --ignored   # if you added/changed commands: no panic on adversarial input (Rule 9)
+cargo xtask wasm
+cargo xtask parity
+cargo xtask ci
 ```
 
-Commands must **never panic** on bad input (Rule 9): every `run` closure and the code it calls returns `Err`, not a panic, for any params or document state. New commands come with a graceful-failure test (empty/out-of-range/wrong-type params → `Err`, not a crash).
+`cargo xtask ci` runs formatting checks, Clippy, tests, layering, and wasm checks.
+Run `cargo xtask wasm` after L0–L6 changes.
+Run `cargo xtask parity` after command additions and commit regenerated `docs/parity.md`.
+For added or changed commands, also run:
 
-Then append a terse entry to `log/devlog.md` (what landed, numbers, what's still open). Sessions can end abruptly (crashes, context limits), so the dev log plus a green tree is how the next agent picks up. Keep the tree building at every step.
+```sh
+cargo test -p photocraft-engine --test panic_hunt -- --ignored
+```
 
-## 6. Parallel agents
+## Code Conventions
 
-- Use your own target dir (`CARGO_TARGET_DIR=target/agent-<name>`) to avoid the Cargo build lock, and edit only the files you own. Shared files (`engine/src/lib.rs`, the `v.extend(...)` list in `engine/src/commands.rs`, `ui-egui/src/menus.rs`, `state.rs`) get small, surgical edits; re-read before editing.
-- Put new commands in a **new module** (`engine/src/<area>_cmds.rs` with a `specs()` function) rather than growing a shared file.
-- If someone else's in-progress edit breaks the build, wait and retry; don't fix their files.
-- Keep every `Cargo.toml` valid at all times: the `crates/*` glob means one broken manifest breaks everyone's build. **Create or rewrite manifests atomically**: write to a temp file outside `crates/`, then `mv` it into place.
-- Disk space: each target dir is about 10 GB. Delete `target/agent-*` dirs of finished agents.
+### Never crash
 
-## 7. Where things are tracked
+Document safety outranks feature work: malformed files, commands, MCP parameters, settings, and full disks must return actionable errors.
+Fix a crash before building on it; unfinished features return unsupported errors rather than panicking.
 
+- Non-test code forbids `unwrap()`, `expect()`, `panic!`, `unreachable!`, `todo!`, and `unimplemented!`.
+- Return crate-owned errors through `Result` and `?`; never use a fallback that silently corrupts documents.
+- A provably infallible literal is the sole `expect` exception, with `#[allow(clippy::expect_used)]` and an explanatory message.
+- The workspace forbids unsafe code.
+- Check input-derived indices with `get()`, string character boundaries, allocation caps, and numeric overflow.
+- Use checked or saturating arithmetic where appropriate; guard division by zero and NaN/infinite casts.
+- Bound recursion with depth limits or seen sets, because documents may be deep or cyclic.
+- Recover poisoned locks through `PoisonError::into_inner` and handle thread joins as results.
+- Keep unwind behavior so the app shell can catch escaped panics around command dispatch and import/export without losing documents.
+- Shell panic guards are a last resort, not permission to introduce panic paths.
+- Every crash fix requires a synthetic regression test that previously panicked.
+- New crates deny Clippy's unwrap, expect, panic, unimplemented, todo, and unreachable lints.
+- `clippy.toml` permits panic-prone operations and indexing in tests only.
 
-- `docs/roadmap.md`: milestones M0–M12, status and the current focus.
-- `docs/parity.md`: generated Photoshop menu coverage.
-- `docs/releasing.md`: cutting a release (`cargo xtask version`, the `release` branch), signing secrets, packaging scripts in `packaging/`.
-- `../craftrules/release/playbook.md`: how every storytold app builds signed release binaries (the canonical recipe; `docs/release-playbook.md` just points there); `docs/releasing.md` is PhotoCraft's specifics.
-- `plan/` (local, gitignored): research, parity plan, execution plan, estimates.
-- `log/` (local, gitignored): the dev log.
-- 
+### Commands and UI ownership
 
-## 8. Keeping the native format complete
+- New user-visible behavior belongs in `crates/engine/src/<area>_cmds.rs` with `specs()`, registered in `commands.rs`.
+- Commands define ID, label, menu path, shortcut, parameter documentation, enabled predicate, and run function.
+- Use the exact ID in `crates/ui-egui/src/menu_catalog.rs` to activate the matching menu item automatically.
+- Only view/window state such as zoom, panels, and screen mode belongs in `menus.rs` and `UI_COMMANDS`.
+- Command runs return errors for arbitrary parameters and document states; validate before indexing, dividing, or allocating.
+- Commands respect selections, masks, locks, color model, depth, and one history step per action.
+- UI state lives in `crates/ui-egui/src/state.rs` with serde for control-channel access.
+- Use `theme::Tokens` and `widgets::*`, not hard-coded colors or radii.
+- New command modules avoid growing shared registration and state files unnecessarily.
 
-`photocraft-format` deliberately fails to compile when a `photocraft-doc` struct gains a field, so
-nothing is silently dropped from `.pcraft` saves. When you add a doc field, add it to
-`crates/format/src/manifest.rs` and `convert.rs` with `#[serde(default)]` so older files still load.
-If the field has a PSD equivalent, map it in `crates/io` too, and keep unknown PSD blocks verbatim.
+### Pixel and persistence invariants
+
+- Depths 8/16/32f and RGB/Gray/CMYK/Lab color models are runtime data; public pixel APIs must not assume `u8`.
+- Never assume sRGB; conversions use `photocraft-cms`, `Transform`, and `transform::cached`.
+- Doc-field additions must update `crates/format/src/manifest.rs` and `convert.rs` with `#[serde(default)]` for old saves.
+- The format crate deliberately fails compilation on missing document fields to prevent silent persistence loss.
+- Map PSD equivalents in `crates/io` and preserve unknown PSD blocks verbatim.
+- Keep filesystem access behind native target guards or platform services so L0–L6 remains wasm-compatible.
+- Process tiles in parallel with Rayon, skip empty tiles, and cache by revision rather than scanning surfaces every frame.
+- Benchmark heavy operations on 24–36 MP images in release and record before/after timings in the dev log.
+
+### Clean-room and assets
+
+Match proprietary editors only through behavioral observation and public specifications, never copied code, shaders, profiles, or assets.
+Contributions use MIT OR Apache-2.0; retain `LICENSE-MIT`, `LICENSE-APACHE`, and `NOTICE`.
+Third-party assets need permissive licenses beside the assets and an `ATTRIBUTION.md` row with path, title, author, source, and license.
+Original assets also require attribution rows.
+ArtCraft logos in `docs/brand/` are not open source; `docs/brand/LICENSE-brand.txt` governs them.
+Demo images must be public-domain art, never personal photos.
+Asset requests must not expose personal names, email addresses, or local project identity in headers or URLs.
+Use a mainstream browser User-Agent rather than upstream's project-identifying example.
+
+## Important Files
+
+- `docs/architecture.md`: detailed crate graph and engine/UI seam.
+- `docs/development.md`: build, debugging, rendering, environment variables, and automation recipes.
+- `docs/contributing.md`: contribution policy and command checklist.
+- `docs/control-protocol.md`: authenticated JSON control and MCP protocol.
+- `docs/ui-design.md`: themes, widgets, and design tokens.
+- `docs/roadmap.md`: milestones M0–M12 and current focus.
+- `docs/parity.md`: generated menu coverage; never lower `crates/ui-egui/src/parity.rs`'s `FLOOR`.
+- `docs/releasing.md`: versioning, release branch, signing, and packaging specifics.
+- `crates/<name>/README.md`: crate APIs where available.
+- `Cargo.toml`, `Cargo.lock`, `.cargo/config.toml`, `rustfmt.toml`, and `clippy.toml`: existing tooling owners.
+
+Upstream references sibling `../craftrules` for reusable standards, not shared code.
+Its `README.md`, `standards/never-crash.md`, and `release/playbook.md` are external prerequisites when relevant.
+Do not assume that sibling checkout exists or create it as part of fork initialization.
+`docs/release-playbook.md` points to the shared release recipe.
+Upstream keeps research in gitignored `plan/` and development notes in gitignored `log/`.
+Use `project/` with uppercase filenames for new fork-owned planning documents.
+Append completed work, measured numbers, and remaining work to `log/devlog.md`.
+Use the roadmap's current focus, then missing parity with existing algorithms, when selecting authorized feature work.
+
+## Runtime/Tooling Preferences
+
+- Rust stable 1.90+ and edition 2024 are the upstream baseline; use Cargo and retain its lockfile.
+- `.cargo/config.toml` maps `cargo xtask` to the workspace's `xtask` binary.
+- Linux desktop builds need `libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libgtk-3-dev`.
+- The web target is `wasm32-unknown-unknown`; run Trunk from `apps/photocraft-web`.
+- Use release builds for interaction; dev profiles already optimize image code and dependencies.
+- Live automation uses `--control`, a control token file, and explicit read/write roots; see `docs/control-protocol.md`.
+- Parallel Cargo work may use `CARGO_TARGET_DIR=target/agent-<name>`; each target directory can approach 10 GB.
+- Keep manifests valid because the `crates/*` workspace glob reads every crate; stage new manifests outside that glob before atomic publication.
+
+## Testing & QA
+
+Upstream requires tests for source changes and graceful-failure tests for new commands.
+This project-specific requirement overrides generic advice against adding tests when the upstream contract requires them.
+Test behavior, undo/redo, disabled states, invalid parameters, and multiple pixel depths at the relevant boundary.
+Format crates use round-trip, synthetic-generator, oracle, malformed-input, and fuzz tests.
+Keep PSD corpus results and the parity floor from regressing; raise `FLOOR` when parity rises.
+Corpus tests can silently skip absent files, so do not report corpus coverage without the actual corpus.
+Run affected-crate tests and Clippy, plus `cargo xtask layers`, before completing source work.
+Fork-only tracking changes use the bundled ledger validator and Git diff checks; no application behavior is changed.
+
+UI changes require an inspected PNG from the offscreen snapshot example or `ui.screenshot` on a controlled app instance.
+Capture only the app window; macOS screenshots may raise it because occluded windows are not rendered.
+Attach before/after screenshots to UI pull requests.
+
+```sh
+cargo run --release -p photocraft-ui-egui --example snapshot -- --out ui.png
+```
