@@ -1,6 +1,6 @@
 # ISSUE-030 — native import: reordered ZIP entries defeat format detection
 
-State: Submitted
+State: Archived
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: https://github.com/storytold/photocraft/pull/137
@@ -8,7 +8,7 @@ Contribution-Priority: Medium
 Root-Cause-Confidence: High
 Finding-Category: Correctness
 Created: 2026-10-05
-Updated: 2026-10-05
+Updated: 2026-10-06
 Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 
 ## Root-Cause
@@ -37,9 +37,9 @@ Trigger: re-zip a valid `.pcraft` bundle so another entry precedes `manifest.jso
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching root cause.
-Upstream issue and pull-request searches for `"manifest.json" reordered` and `pcraft ZIP entry order` returned no results.
-Gaps: upstream discussions and releases were not searched.
+Coverage: targeted upstream issue/PR searches and current PR #137 thread/diff checked on 2026-10-06.
+PR #137 by @MikeeI merged on 2026-10-05 and resolves the same ZIP entry-order detection defect.
+The original search found no prior result; upstream discussions and releases were not searched.
 Contribution fit: a bounded import correction for bundles already supported by the native loader.
 
 ## Proposed-Change
@@ -66,6 +66,7 @@ Status: baseline import and offset-overflow regressions reproduced; post-fix che
 - Controlled desktop `app.open` opened both filenames; `ui.inspect` showed the loaded 2400×1500 document.
 - WebAssembly emitted existing `photocraft-cms` dead-code warnings for `PAR_MIN_PIXELS` and `PAR_CHUNK_PIXELS`.
 - Independent xhigh source review approved the final patch.
+[S] Current `upstream/main@47f4abfed49e0d2f5b9277287b27dee632530ba4` recognizes the manifest through central-directory lookup when it is not the first ZIP entry (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/format/src/lib.rs#L102-L116).
 
 Test decision: update — existing `synthetic_pcraft_roundtrip_keeps_everything` covers public import routing.
 Crash regression: `zip::tests::offset_access_rejects_overflow` was added to reproduce the required ZIP offset panic.
@@ -76,9 +77,9 @@ None.
 
 ## Next-Action
 
-Summary: Await upstream reordered import review
-Action: Address upstream feedback on reordered native ZIP detection.
-Done-When: Upstream closes or merges the PR.
+Summary: —
+Action: None.
+Done-When: None.
 
 ## Pull-Request-Implementation
 
@@ -137,3 +138,10 @@ If reports like this are not useful to the project, please let me know and I wil
 My intent is to help without wasting maintainer time or energy or discouraging their work.
 
 Thank you for your work.
+
+## Archive
+
+Archive-Reason: Merged
+Detail: None.
+Evidence: https://github.com/storytold/photocraft/pull/137
+Checked: 2026-10-06

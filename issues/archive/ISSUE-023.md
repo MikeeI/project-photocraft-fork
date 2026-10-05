@@ -1,6 +1,6 @@
 # ISSUE-023 — flat export: native shortcut bypasses active compositing properties
 
-State: Submitted
+State: Archived
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: https://github.com/storytold/photocraft/pull/122
@@ -8,7 +8,7 @@ Contribution-Priority: High
 Root-Cause-Confidence: High
 Finding-Category: Correctness
 Created: 2026-10-05
-Updated: 2026-10-05
+Updated: 2026-10-06
 Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 
 ## Root-Cause
@@ -32,9 +32,10 @@ Trigger: export one otherwise eligible raster layer with a half-canvas vector ma
 
 ## Prior-Art
 
-Coverage: upstream inventory covered all 102 issue/PR records, relevant discussions, and public releases; no exact root-cause duplicate was found.
+Coverage: original upstream inventory, current PR #122 thread/diff, and main source checked on 2026-10-06.
+PR #122 by @MikeeI merged on 2026-10-05; it gates direct flat export on active vector masks and effective compositor restrictions.
+`ISSUE-033` concerns loss warnings, not visible composite output.
 GitHub Discussions are disabled; project Discord history was inaccessible.
-`ISSUE-033` concerns omitted channel-loss warnings, not incorrect visible composite pixels.
 
 ## Proposed-Change
 
@@ -54,6 +55,7 @@ The isolated post-fix test decodes PNG output and matches every pixel to the CPU
 [O] Full IO tests passed: 195 across 18 suites; affected Clippy passed with warnings denied.
 [O] Formatting, dependency layering, and all 20 WebAssembly packages passed.
 Main's source review confirmed the shortcut now requires no active vector mask, effective channel restriction, or Blend If.
+[S] Current main's single-layer eligibility checks enabled vector masks, channel weights, and Blend If before using native pixels (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/io/src/flat.rs#L88-L107).
 
 ## Publication-Blockers
 
@@ -61,9 +63,9 @@ None.
 
 ## Next-Action
 
-Summary: Await upstream flat export review
-Action: Address review feedback on the submitted compositing eligibility fix.
-Done-When: Upstream closes or merges the PR.
+Summary: —
+Action: None.
+Done-When: None.
 
 ## Pull-Request-Implementation
 
@@ -120,3 +122,10 @@ If reports like this are not useful to the project, please let me know and I wil
 My intent is to help without wasting maintainer time or energy or discouraging their work.
 
 Thank you for your work.
+
+## Archive
+
+Archive-Reason: Merged
+Detail: None.
+Evidence: https://github.com/storytold/photocraft/pull/122
+Checked: 2026-10-06

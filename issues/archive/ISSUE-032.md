@@ -1,6 +1,6 @@
 # ISSUE-032 — PSD export: eight-bit opacity detection drops U16 alpha
 
-State: Submitted
+State: Archived
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: https://github.com/storytold/photocraft/pull/111
@@ -8,7 +8,7 @@ Contribution-Priority: Low
 Root-Cause-Confidence: High
 Finding-Category: Correctness
 Created: 2026-10-05
-Updated: 2026-10-05
+Updated: 2026-10-06
 Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 
 ## Root-Cause
@@ -33,9 +33,9 @@ No ordinary visual artifact is claimed.
 
 ## Prior-Art
 
-Upstream inventory covered all 102 issue/PR records, relevant discussions, and public releases.
-https://github.com/storytold/photocraft/pull/71 preserves the `q255` decision and tests U8 near-opacity, not U16 precision.
-No duplicate or active implementation was found.
+Coverage: original 102-record inventory, current PR #111 thread/diff, and main source checked on 2026-10-06.
+PR #71 preserves `q255` and covers U8 near-opacity, not U16 target precision (https://github.com/storytold/photocraft/pull/71).
+PR #111 by @MikeeI merged on 2026-10-05 and preserves merged alpha at exported U16 precision.
 GitHub Discussions are disabled; project Discord history was inaccessible.
 
 ## Proposed-Change
@@ -58,6 +58,7 @@ An earlier shared Cargo target returned contradictory stale results; only isolat
 Existing WebAssembly-only unused-constant warnings remain unchanged.
 [S] Independent xhigh review approved the complete diff and precision-specific decision.
 The review traced both opacity callers and the serialized regression; it did not run additional tests.
+[S] Current main evaluates merged alpha at U8, U16, or F32 target precision (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/io/src/psd_export.rs#L539-L545).
 
 ## Publication-Blockers
 
@@ -65,9 +66,9 @@ None.
 
 ## Next-Action
 
-Summary: Await upstream merged alpha review
-Action: Address review feedback on the submitted bounded correction.
-Done-When: Upstream closes or merges the PR.
+Summary: —
+Action: None.
+Done-When: None.
 
 ## Pull-Request-Implementation
 
@@ -118,3 +119,10 @@ Existing WebAssembly unused-constant warnings are unchanged.
 This contribution was prepared with OpenAI Codex through the Oh My Pi/MOMP agent framework.
 An independent `openai-codex/gpt-6.1-sol` reviewer at xhigh effort reviewed the bounded diff.
 The implementation agent executed the reported checks; review approval is not additional runtime evidence.
+
+## Archive
+
+Archive-Reason: Merged
+Detail: None.
+Evidence: https://github.com/storytold/photocraft/pull/111
+Checked: 2026-10-06

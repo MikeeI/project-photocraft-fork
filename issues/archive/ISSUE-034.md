@@ -1,6 +1,6 @@
 # ISSUE-034 — PSD export: full channel budget silently drops Quick Mask
 
-State: Submitted
+State: Archived
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: https://github.com/storytold/photocraft/pull/115
@@ -8,7 +8,7 @@ Contribution-Priority: Medium
 Root-Cause-Confidence: High
 Finding-Category: Correctness
 Created: 2026-10-05
-Updated: 2026-10-05
+Updated: 2026-10-06
 Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 
 ## Root-Cause
@@ -32,11 +32,10 @@ Trigger: export opaque RGB with 53 saved extra channels and an active Quick Mask
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching root cause.
-`ISSUE-033` owns flat-format warning loss; PSD uses a separate capacity-dependent branch.
-Upstream inventory covered all 102 issue/PR records, relevant discussions, and public releases.
-https://github.com/storytold/photocraft/pull/63 surfaces warnings but does not generate this missing capacity warning.
-No duplicate or active implementation was found.
+Coverage: original 102-record inventory, current PR #115 thread/diff, and main source checked on 2026-10-06.
+PR #63 added warning surfaces but does not own capacity-dependent Quick Mask loss (https://github.com/storytold/photocraft/pull/63).
+PR #115 by @MikeeI merged on 2026-10-05; it adds a Quick Mask-specific warning when the channel slot is unavailable.
+`ISSUE-033` owns flat-format warning loss at a separate export boundary.
 GitHub Discussions are disabled; project Discord history was inaccessible.
 
 ## Proposed-Change
@@ -56,6 +55,7 @@ The focused post-fix run passed, asserting a Quick Mask warning, 56 output chann
 [O] Full isolated IO tests passed: 195 tests across 18 suites; affected Clippy passed with warnings denied.
 [O] Formatting, layering across 26 crates, and all 20 WebAssembly packages passed.
 [S] Independent xhigh review approved the bounded diff and traced warning ownership and resource consistency.
+[S] Current main warns when a present Quick Mask has no remaining channel slot (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/io/src/psd_export.rs#L655-L669).
 
 ## Publication-Blockers
 
@@ -63,9 +63,9 @@ None.
 
 ## Next-Action
 
-Summary: Await upstream Quick Mask warning review
-Action: Address review feedback on the submitted capacity-loss warning.
-Done-When: Upstream closes or merges the PR.
+Summary: —
+Action: None.
+Done-When: None.
 
 ## Pull-Request-Implementation
 
@@ -123,3 +123,10 @@ If reports like this are not useful to the project, please let me know and I wil
 My intent is to help without wasting maintainer time or energy or discouraging their work.
 
 Thank you for your work.
+
+## Archive
+
+Archive-Reason: Merged
+Detail: None.
+Evidence: https://github.com/storytold/photocraft/pull/115
+Checked: 2026-10-06

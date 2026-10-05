@@ -1,6 +1,6 @@
 # ISSUE-022 — PSD import: redundant-mask cleanup deletes the selected real mask
 
-State: Submitted
+State: Archived
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: https://github.com/storytold/photocraft/pull/130
@@ -8,7 +8,7 @@ Contribution-Priority: High
 Root-Cause-Confidence: High
 Finding-Category: Correctness
 Created: 2026-10-05
-Updated: 2026-10-05
+Updated: 2026-10-06
 Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 
 ## Root-Cause
@@ -33,9 +33,9 @@ The fixture asserts Shape content explicitly; serializing its empty vector tags 
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching root cause.
-Vector-mask compilation cost in `ISSUE-011` does not concern PSD mask-source ownership.
-Upstream inventory covered all 102 issue/PR records, relevant discussions, and public releases; no matching root cause was found.
+Coverage: original 102-record inventory, current PR #130 thread/diff, and main source checked on 2026-10-06.
+PR #130 by @MikeeI merged on 2026-10-05; its shared selected-real-mask predicate fixes the recorded cleanup defect.
+Earlier PR #195 parser field-order handling is distinct; ISSUE-011 concerns vector-mask compilation (https://github.com/storytold/photocraft/pull/195).
 GitHub Discussions are disabled; project Discord history was inaccessible.
 
 ## Proposed-Change
@@ -59,6 +59,7 @@ The source now shares actual real-mask selection across import and both syntheti
 [O] Formatting, dependency layering, and all 20 WebAssembly packages passed.
 [S] Independent xhigh review approved the shared source-selection predicate and both cleanup guards.
 The fixture is synthetic, and neither the reimported layer kind nor every mask property is asserted.
+[S] Current `upstream/main@47f4abfed49e0d2f5b9277287b27dee632530ba4` applies the selected-real-mask predicate to decoding and both synthetic-mask cleanup paths (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/io/src/psd_import.rs#L76-L80; https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/io/src/psd_import.rs#L141-L168; https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/io/src/psd_import.rs#L310-L343).
 
 ## Publication-Blockers
 
@@ -66,9 +67,9 @@ None.
 
 ## Next-Action
 
-Summary: Await upstream real-mask review
-Action: Address review feedback on the submitted PSD mask correction.
-Done-When: Upstream closes or merges the PR.
+Summary: —
+Action: None.
+Done-When: None.
 
 ## Pull-Request-Implementation
 
@@ -126,3 +127,10 @@ If reports like this are not useful to the project, please let me know and I wil
 My intent is to help without wasting maintainer time or energy or discouraging their work.
 
 Thank you for your work.
+
+## Archive
+
+Archive-Reason: Merged
+Detail: None.
+Evidence: https://github.com/storytold/photocraft/pull/130
+Checked: 2026-10-06
