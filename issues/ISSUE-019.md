@@ -9,7 +9,7 @@ Root-Cause-Confidence: High
 Finding-Category: Reliability
 Created: 2026-10-05
 Updated: 2026-10-06
-Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Source: `upstream/main@47f4abfed49e0d2f5b9277287b27dee632530ba4`
 
 ## Root-Cause
 
@@ -19,8 +19,8 @@ Review mapping: `E6`, VALID; severity High.
 ## Reach-and-Impact
 
 Trigger: two directory-bundle writers overlap on one `.pcraft` path with different object sets.
-[S] A writer's GC uses an object snapshot taken before another writer publishes a newer manifest, so it can remove an object that manifest reuses.
-[A] This interleaving is source-derived, not runtime-reproduced; production frequency is unknown.
+[O] A controlled Linux reproduction delayed writer A immediately after a new object rename; writer B's stale-snapshot GC removed the object before A published its manifest, and final bundle loading failed.
+The reproduction proves this interleaving is possible, not its production frequency.
 
 ## Evidence
 
@@ -31,10 +31,10 @@ Trigger: two directory-bundle writers overlap on one `.pcraft` path with differe
 
 ## Prior-Art
 
-Coverage: issue #203, merged PR #230, and current upstream source reviewed on 2026-10-06; targeted search found no cross-writer bundle-GC fix.
+Coverage: upstream issue #203, merged PR #230, and current source reviewed on 2026-10-06; targeted searches found no cross-writer bundle-GC fix.
 PR #230 adds exclusive temporary files and atomic file replacement but does not serialize the directory transaction across object enumeration, manifest publication, and GC (https://github.com/storytold/photocraft/pull/230).
 `ISSUE-014` owns destructive single-file overwrite; `ISSUE-018` owns same-session document-ID collisions.
-Contribution fit: verify the stale-snapshot bundle-GC interleaving before implementation.
+Contribution fit: the controlled reproduction demonstrates a distinct bundle-level stale-GC failure.
 
 ## Proposed-Change
 
@@ -50,29 +50,32 @@ Unique temporary files and process-local locks alone cannot protect objects refe
 
 ## Verification
 
-Status: source-proven directory-GC interleaving; no runtime reproduction performed.
-- Seed shared object `X`; let writer A snapshot it, publish a manifest excluding it, and pause A before GC.
-- Let writer B snapshot the still-present `X` and publish a manifest reusing it; resume A's stale GC and verify B's manifest remains loadable with every referenced object present.
+Status: controlled cross-process reproduction and focused regression pass.
+- Baseline: on Ubuntu 24.04.5, x86_64, Linux 6.8.0-107-generic, `strace` delayed writer A after its successful object rename; writer B completed a baseline save while A was paused; A then published a manifest whose object had been removed, and `load_path` failed.
+- Fixed branch: writer B blocked on `flock(3, LOCK_EX)` until writer A finished; both writers exited successfully and final `load_path` verification passed.
+- Regression: `cargo test --locked -p photocraft-format --test roundtrip directory_incremental_and_gc -- --exact` passed.
 
 ## Publication-Blockers
 
-- The source-derived interleaving still needs controlled execution in a disposable directory.
-- The cross-process coordination choice, implementation, focused checks, and exact PR draft remain unresolved.
+- Upstream issue/PR prior art and the exact current PR draft remain unresolved.
 
 ## Next-Action
 
-Summary: Reproduce bundle-GC interleaving
-Action: Coordinate two independent writers so stale-snapshot garbage collection overlaps a newer manifest publication.
-Done-When: Record ordering, final manifest object closure, and bundle loadability.
+Summary: Complete upstream PR evidence
+Action: Search current upstream prior art and prepare the exact pull request draft.
+Done-When: Record search coverage and exact target/body without publishing.
 
 ## Pull-Request-Implementation
 
 Branch: fix/concurrent-native-publication
-Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Base: `upstream/main@47f4abfed49e0d2f5b9277287b27dee632530ba4`
 Scope: Coordinate directory-bundle publication and garbage collection across processes so stale snapshots cannot remove objects from a committed manifest.
-Commit: Pending.
-Push: Pending.
+Commit: `7b272bd`
+Push: `origin/fix/concurrent-native-publication`
 Checks:
-- Pending.
-
-The user authorized implementation and publication of a verified fix PR on 2026-10-05.
+- `cargo test --locked -p photocraft-format` → 68 passed.
+- `cargo clippy --locked -p photocraft-format --all-targets -- -D warnings` → passed.
+- `cargo xtask layers` → passed; 27 crates, no layering violations.
+- `cargo xtask wasm` → passed from this worktree.
+- `cargo xtask test-corpus` → all pinned corpora verified; corpus suites passed from this worktree.
+- Controlled cross-process baseline failed to load after stale GC; fixed branch serialized B behind A and loaded successfully.
