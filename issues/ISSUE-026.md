@@ -8,7 +8,7 @@ Contribution-Priority: Medium
 Root-Cause-Confidence: High
 Finding-Category: Correctness
 Created: 2026-10-05
-Updated: 2026-10-05
+Updated: 2026-10-06
 Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 
 ## Root-Cause
@@ -30,12 +30,13 @@ No geometry/filter sequence was executed.
 - [S] `crates/engine/src/canvas_geom.rs:103,180-195` transforms smart placement and refreshes content.
 - [S] `crates/engine/src/smart_cmds.rs:255-266,302-320` samples the filter mask in placed document coordinates.
 - [S] `crates/engine/src/smart_cmds.rs:402-410` already moves the filter mask during ordinary object movement.
+- [S] Current main's mask-aware image traversal visits `sm.cache` but omits `sm.filter_mask.surface`; Image Size and `translate_doc` reuse that traversal (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/engine/src/image_cmds.rs#L24-L55; https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/engine/src/image_cmds.rs#L109-L178).
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching root cause.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved pending a focused filter-mask geometry comparison.
+Coverage: current main source and merged PR #70 reviewed on 2026-10-06.
+PR #70 explicitly leaves Canvas Size and Crop smart-filter-mask translation unresolved (https://github.com/storytold/photocraft/pull/70).
+This is partial prior art, not a fix; Image Size resampling is also affected in current source.
 
 ## Proposed-Change
 
@@ -55,8 +56,8 @@ Status: source-traced; no geometry experiment executed.
 
 ## Publication-Blockers
 
-- Resize and post-translation refresh behavior need runtime verification.
-- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
+- Image Size and post-translation refresh behavior need runtime verification.
+- Implementation, focused checks, and the exact external draft remain unresolved.
 
 ## Next-Action
 
