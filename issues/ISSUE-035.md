@@ -1,9 +1,9 @@
 # ISSUE-035 — effect cache: surface identity omits mask default pixels
 
-State: Investigating
+State: Submitted
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
-External-Reference: Not published.
+External-Reference: https://github.com/storytold/photocraft/pull/105
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
 Finding-Category: Correctness
@@ -20,7 +20,7 @@ Review mapping: `E22`, VALID; severity Medium.
 
 Trigger: render a shadowed raster with a tileless Reveal All mask, then replace it with tileless Hide All.
 [S] The mask fingerprints match despite opposite coverage, allowing old shadow or glow maps to survive.
-No application render comparison was executed.
+[O] The existing compositor test now reproduces stale shadow pixels and verifies equal warm/cold output after the fix.
 
 ## Evidence
 
@@ -29,13 +29,17 @@ No application render comparison was executed.
 - [S] `crates/compose/src/lib.rs:1058-1066` reuses effect maps for the matching key.
 - [S] `crates/compose/src/effects.rs:1046-1058` paints cached exterior shadow coverage.
 - [S] `crates/engine/src/commands.rs:544-554,1049-1054` replaces the mask through normal commands.
+- [O] The added Reveal All → Hide All regression failed before the fix at its warm/cold pixel comparison.
+- [O] The fixed focused regression passed; an isolated build passed all 100 compose tests and affected-crate Clippy.
+- [S] Upstream `7e7864afae8f779afff063a68edf208e30fe592c` leaves the affected compositor and dependency sources unchanged.
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; `ISSUE-004` was read for duplicate comparison.
-`ISSUE-004` owns repeated metadata derivation cost, not missing identity inputs or stale effect results.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved pending a warm-cache versus cold-cache image comparison.
+Coverage: local ledger and all 102 upstream issue/PR records, public releases, and relevant PR discussions checked.
+No matching upstream root cause or active implementation was found.
+`ISSUE-004` owns metadata derivation cost, not incomplete cache identity.
+Related rendering changes in https://github.com/storytold/photocraft/pull/71 do not repair this cache key.
+GitHub Discussions are disabled; project Discord history was inaccessible.
 
 ## Proposed-Change
 
@@ -49,29 +53,77 @@ Include the surface default pixel and pixel format in effect-cache surface ident
 
 ## Verification
 
-Status: source-traced; no application render comparison executed.
-- Render Reveal All, switch to Hide All, and compare the warm-cache result with a cold-cache render.
-- Exterior effects must not retain coverage from the previous mask.
+[O] Regression: `cargo test -p photocraft-compose --lib tests::effect_maps_are_cached_and_invalidated_by_pixel_changes -- --exact` failed before and passed after the fix.
+[O] `cargo test -p photocraft-compose` passed 97 unit and 3 integration tests in an isolated target directory.
+[O] `cargo clippy -p photocraft-compose --all-targets -- -D warnings` passed.
+[O] `cargo fmt -p photocraft-compose` and `git diff --check` passed.
+[O] `cargo xtask layers` passed for 26 crates; `cargo xtask wasm` passed for all 20 selected packages.
+The wasm check emitted existing unused-constant warnings in CMS and engine code.
+An independent GPT-6.1 Sol review at runtime-verified xhigh effort found no source blocker.
 
 ## Publication-Blockers
 
-- Deterministic warm/cold-cache output mismatch needs runtime verification.
-- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
+None.
 
 ## Next-Action
 
-Summary: Compare mask effect-cache results
-Action: Render one shadowed raster across a Reveal All to Hide All transition with warm and cleared caches.
-Done-When: Record mask defaults, cache conditions, expected coverage, and exact differing output pixels.
+Summary: Await upstream cache review
+Action: Monitor the submitted PR for actionable maintainer feedback or CI failures.
+Done-When: Feedback is addressed or the PR reaches a terminal upstream decision.
 
 ## Pull-Request-Implementation
 
 Branch: fix/hash-mask-default-pixels
 Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 Scope: Include surface default pixels and format in CPU effect-cache identity.
-Commit: Pending.
-Push: Pending.
+Commit: 8be4613ff402bae48455d6dbcefeb9c36244f191
+Push: origin/fix/hash-mask-default-pixels
 Checks:
-- Pending.
+- Focused regression: failed before, passed after.
+- Affected-crate tests: 100 passed.
+- Affected-crate Clippy and Git diff checks: passed.
+- Layering and WebAssembly: passed.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.
+
+## Publication-Draft
+
+Target: `storytold/photocraft:main`
+Head: `MikeeI:fix/hash-mask-default-pixels`
+Title: Fix stale effect maps after default-only mask changes
+
+### Problem
+
+Replacing a tileless Reveal All mask with Hide All can leave the previous exterior shadow visible.
+Both masks have identical allocated tiles and flags, but different default pixels.
+The effect-cache fingerprint omitted that default, allowing stale effect maps to be reused.
+
+### Changes
+
+- Include the surface pixel format and default samples in effect-cache identity.
+- Retain the order-independent tile fingerprint and existing copy-on-write tile pinning.
+- Extend the existing cache regression to compare every warm-cache pixel with an otherwise identical cold-cache render.
+
+### Verification
+
+The regression failed before this change and passes afterward.
+It first establishes a visible shadow, replaces only the mask, then requires the shadow pixel to return to the white background.
+
+- `cargo test -p photocraft-compose`: 97 unit and 3 integration tests passed.
+- `cargo clippy -p photocraft-compose --all-targets -- -D warnings`: passed.
+- `cargo fmt -p photocraft-compose` and `git diff --check`: passed.
+
+This corrects CPU effect-map identity; it does not change GPU cache policy or claim a performance improvement.
+
+### Disclosure
+
+Investigated thoroughly with GPT-6.1 Sol (extra high reasoning effort), using [Oh My Pi](https://github.com/can1357/oh-my-pi) as the agent framework.
+I reviewed this contribution with GPT-6.1 Sol at xhigh reasoning effort.
+
+This report is not generic or unreviewed AI-generated output.
+Its claims were checked against the cited evidence, and it includes the relevant detail intended to help maintainers resolve the issue.
+
+If reports like this are not useful to the project, please let me know and I will refrain from submitting similar ones.
+My intent is to help without wasting maintainer time or energy or discouraging their work.
+
+Thank you for your work.
