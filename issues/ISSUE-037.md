@@ -1,6 +1,6 @@
 # ISSUE-037 — proxy rendering: artboard rectangles retain full-size coordinates
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -22,7 +22,8 @@ Changing only thumbnail proxy eligibility cannot repair interactive callers that
 Trigger: a large document has an artboard positioned toward the right side of its canvas.
 [S] The original rectangle can lie entirely outside the smaller proxy and cause its contents to disappear.
 [S] Native thumbnails and interactive filter previews both reach proxy rendering through different callers.
-No thumbnail or live-preview reproduction was executed.
+[O] The existing artboard integration regression failed at proxy pixel `(3,2)` before the fix and passed afterward.
+Actual thumbnail and interactive-preview PNG evidence remains pending.
 
 ## Evidence
 
@@ -36,8 +37,8 @@ No thumbnail or live-preview reproduction was executed.
 
 Coverage: local ledger checked on 2026-10-05; `ISSUE-010` was read for duplicate comparison.
 `ISSUE-010` concerns source-row copy volume, not unscaled clipping geometry.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved pending both thumbnail and interactive-preview comparisons.
+Upstream inventory covered all 102 issue/PR records, relevant discussions, and public releases; no exact duplicate was found.
+GitHub Discussions are disabled; project Discord history was inaccessible.
 
 ## Proposed-Change
 
@@ -51,14 +52,16 @@ Scale artboard rectangles inside `shrink_layer` with the proxy factor and consis
 
 ## Verification
 
-Status: source-traced; no rendering reproduction executed.
-- Render a 6000-by-4000 document with a right-side artboard as a thumbnail and an interactive filter preview.
-- Require the same visible artboard placement at the corresponding reduced coordinates.
+[O] The extended `contents_are_clipped_and_background_painted` failed before the fix and passed afterward.
+It compares every reduced pixel against source coordinates `(4*x,4*y)` for an unaligned artboard rectangle.
+[O] Full compose verification passed: 97 unit tests and three integration tests.
+[O] Formatting, affected Clippy, dependency layering, and all 20 WebAssembly packages passed.
+[S] Two independent source reviews approved signed ceil scaling of both half-open edges.
+Before/after offscreen UI captures must still demonstrate the thumbnail and interactive filter-preview callers.
 
 ## Publication-Blockers
 
-- Thumbnail and interactive-preview geometry evidence is missing.
-- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
+- Inspected before/after UI captures and the exact publication draft remain pending.
 
 ## Next-Action
 
@@ -74,6 +77,10 @@ Scope: Scale artboard clipping rectangles inside proxy creation for all proxy co
 Commit: Pending.
 Push: Pending.
 Checks:
-- Pending.
+- Baseline proxy-artboard regression: failed at `(3,2)`.
+- Focused and full compose tests: passed.
+- Formatting, affected Clippy, layering, and WebAssembly: passed.
+- Independent source reviews: approved.
+- Offscreen UI captures: pending.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.

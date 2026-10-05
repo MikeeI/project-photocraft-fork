@@ -1,9 +1,9 @@
 # ISSUE-022 — PSD import: redundant-mask cleanup deletes the selected real mask
 
-State: Implementing
+State: Submitted
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
-External-Reference: Not published.
+External-Reference: https://github.com/storytold/photocraft/pull/130
 Contribution-Priority: High
 Root-Cause-Confidence: High
 Finding-Category: Correctness
@@ -53,30 +53,76 @@ Preserve a selected real mask; remove only synthetic coverage already represente
 
 [O] The existing `vector_rendered_mask_not_doubled_on_shapes` extension failed at the missing selected real mask.
 The source now shares actual real-mask selection across import and both synthetic-cleanup paths.
-Post-fix isolated verification is queued behind the two active Cargo chains.
+[O] The post-fix direct-import regression preserves Shape content and the selected real-mask sample `64/255`.
+[O] The same existing test exports and reimports the mask sample without loss.
+[O] Full IO tests passed: 195 across 18 suites; affected Clippy passed with warnings denied.
+[O] Formatting, dependency layering, and all 20 WebAssembly packages passed.
 [S] Independent xhigh review approved the shared source-selection predicate and both cleanup guards.
-The direct synthetic Shape assertion reproduces the defect; the byte roundtrip checks mask sample preservation.
-No Photoshop corpus, complete mask-property coverage, or runtime coverage of both cleanup paths is claimed.
+The fixture is synthetic, and neither the reimported layer kind nor every mask property is asserted.
 
 ## Publication-Blockers
 
-- Post-fix mask preservation, exported roundtrip, and required gates remain pending.
+None.
 
 ## Next-Action
 
-Summary: Verify selected mask preservation
-Action: Run isolated IO verification when a bounded build slot becomes available.
-Done-When: The selected real mask survives import/export and the scoped PR is published.
+Summary: Await upstream real-mask review
+Action: Address review feedback on the submitted PSD mask correction.
+Done-When: Upstream closes or merges the PR.
 
 ## Pull-Request-Implementation
 
 Branch: fix/preserve-real-psd-mask
 Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 Scope: Preserve selected real PSD masks while still eliminating redundant synthetic coverage.
-Commit: Pending.
-Push: Pending.
+Commit: `b09bebdea57bf5a1adeea8166316f3b83bbc7ed0`
+Push: `origin/fix/preserve-real-psd-mask`.
 Checks:
 - Baseline direct-import regression: failed at missing selected mask.
-- Post-fix isolated IO gates: queued.
+- Post-fix direct import preserves shape and the real-mask sample; export/reimport retains that sample.
+- Full IO suite: 195 passed across 18 suites.
+- Affected Clippy with warnings denied, formatting, layering, and all 20 WebAssembly packages: passed.
+- Independent xhigh source review: approved.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.
+
+## Publication-Draft
+
+Target: `storytold/photocraft:main`
+Head: `MikeeI:fix/preserve-real-psd-mask`
+Title: Preserve selected real masks during PSD import
+
+### Problem
+
+PSD import can select a real user mask from channel `-3` and then discard it because the layer also marks vector-rendered mask coverage.
+The synthetic-cleanup decision must use the same channel-and-metadata predicate that selected the mask.
+
+### Change
+
+Share the selected-real-mask predicate between mask decoding and both cleanup paths.
+Preserve the chosen real mask; keep removing synthetic coverage when only the ordinary `-2` mask is selected.
+
+### Verification
+
+- The direct public-import regression failed before the fix because the selected real mask was removed from a synthetic Shape layer.
+- The isolated post-fix regression preserves Shape content and mask sample `64/255`.
+- The same existing test exports and reimports the mask sample.
+- Full IO tests passed: 195 tests across 18 suites.
+- Affected Clippy with warnings denied, formatting, dependency layering, and all 20 WebAssembly packages passed.
+- Independent source review found no blocker.
+
+The fixture is synthetic, not a Photoshop-produced PSD.
+The roundtrip verifies one mask sample; it does not assert the reimported layer kind or every mask property.
+
+### Disclosure
+
+Investigated thoroughly with GPT-6.1 Sol (extra high reasoning effort), using [Oh My Pi](https://github.com/can1357/oh-my-pi) as the agent framework.
+I reviewed this contribution with GPT-6.1 Sol at xhigh reasoning effort.
+
+This report is not generic or unreviewed AI-generated output.
+Its claims were checked against the cited evidence, and it includes the relevant detail intended to help maintainers resolve the issue.
+
+If reports like this are not useful to the project, please let me know and I will refrain from submitting similar ones.
+My intent is to help without wasting maintainer time or energy or discouraging their work.
+
+Thank you for your work.

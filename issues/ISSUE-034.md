@@ -1,9 +1,9 @@
 # ISSUE-034 — PSD export: full channel budget silently drops Quick Mask
 
-State: Implementing
+State: Submitted
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
-External-Reference: Not published.
+External-Reference: https://github.com/storytold/photocraft/pull/115
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
 Finding-Category: Correctness
@@ -53,18 +53,19 @@ Emit an explicit Quick Mask loss warning when the mask is present but no channel
 
 [O] The extended `channel_options_spot_and_quick_mask_roundtrip` failed before the fix with an empty warning list.
 The focused post-fix run passed, asserting a Quick Mask warning, 56 output channels, and no resource 1022.
-Isolated full IO, Clippy, layering, and WebAssembly verification is running in target/issue-034.
-[S] Independent xhigh review approved the bounded diff and confirmed unchanged saved-channel priority and resource ownership.
+[O] Full isolated IO tests passed: 195 tests across 18 suites; affected Clippy passed with warnings denied.
+[O] Formatting, layering across 26 crates, and all 20 WebAssembly packages passed.
+[S] Independent xhigh review approved the bounded diff and traced warning ownership and resource consistency.
 
 ## Publication-Blockers
 
-- The isolated required verification chain remains pending.
+None.
 
 ## Next-Action
 
-Summary: Verify Quick Mask loss warning
-Action: Finish the active isolated validation chain, then publish the independently reviewed warning fix.
-Done-When: Required gates pass and the scoped warning PR is published.
+Summary: Await upstream Quick Mask warning review
+Action: Address review feedback on the submitted capacity-loss warning.
+Done-When: Upstream closes or merges the PR.
 
 ## Pull-Request-Implementation
 
@@ -76,7 +77,49 @@ Push: `origin/fix/warn-quick-mask-capacity`.
 Checks:
 - Baseline capacity warning regression: failed with empty warnings.
 - Focused post-fix capacity regression: passed.
-- Full isolated verification: running.
+- Isolated full IO tests: 195 passed across 18 suites.
+- Affected Clippy with warnings denied, formatting, layering, and all 20 WebAssembly packages: passed.
 - Independent xhigh source review: approved.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.
+
+## Publication-Draft
+
+Target: `storytold/photocraft:main`
+Head: `MikeeI:fix/warn-quick-mask-capacity`
+Title: Warn when the PSD channel limit drops a Quick Mask
+
+### Problem
+
+PSD export silently omits a present Quick Mask when saved alpha channels already consume the channel budget.
+At exact capacity, the existing saved-channel truncation warning does not fire, leaving this separate loss unreported.
+
+### Change
+
+Emit a Quick Mask-specific warning at the branch that omits it.
+Keep the 56-channel limit, saved-channel ordering, and resource 1022 behavior unchanged.
+
+### Verification
+
+- The public export regression failed before the fix with an empty warning list.
+- The isolated post-fix regression verifies the Quick Mask warning, 56 output channels, and no resource 1022 for the omitted mask.
+- Existing below-capacity Quick Mask roundtrip coverage remains in the same test.
+- The full IO suite passed: 195 tests across 18 suites.
+- Affected Clippy with warnings denied, formatting, dependency layering, and all 20 WebAssembly packages passed.
+- Independent source review found no blocker.
+
+The regression fixture is synthetic U8 RGB and exercises exact capacity; no separate-channel content assertions are claimed.
+The `document_to_psd` convenience wrapper still discards warnings; this fix verifies public `export` warnings.
+
+### Disclosure
+
+Investigated thoroughly with GPT-6.1 Sol (extra high reasoning effort), using [Oh My Pi](https://github.com/can1357/oh-my-pi) as the agent framework.
+I reviewed this contribution with GPT-6.1 Sol at xhigh reasoning effort.
+
+This report is not generic or unreviewed AI-generated output.
+Its claims were checked against the cited evidence, and it includes the relevant detail intended to help maintainers resolve the issue.
+
+If reports like this are not useful to the project, please let me know and I will refrain from submitting similar ones.
+My intent is to help without wasting maintainer time or energy or discouraging their work.
+
+Thank you for your work.

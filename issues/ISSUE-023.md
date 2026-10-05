@@ -1,9 +1,9 @@
 # ISSUE-023 — flat export: native shortcut bypasses active compositing properties
 
-State: Investigating
+State: Submitted
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
-External-Reference: Not published.
+External-Reference: https://github.com/storytold/photocraft/pull/122
 Contribution-Priority: High
 Root-Cause-Confidence: High
 Finding-Category: Correctness
@@ -21,7 +21,7 @@ Review mapping: `E10`, VALID; severity High.
 Trigger: export one otherwise eligible raster layer with a half-canvas vector mask as PNG or TIFF.
 [S] The shortcut exports original raster bytes rather than the masked visible composite.
 [S] Supported active Blend If and channel restrictions can be bypassed by the same eligibility omission.
-No exported-image comparison was executed.
+[O] A direct PNG export of an enabled vector mask lacked alpha before the fix.
 
 ## Evidence
 
@@ -32,10 +32,9 @@ No exported-image comparison was executed.
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching root cause.
+Coverage: upstream inventory covered all 102 issue/PR records, relevant discussions, and public releases; no exact root-cause duplicate was found.
+GitHub Discussions are disabled; project Discord history was inaccessible.
 `ISSUE-033` concerns omitted channel-loss warnings, not incorrect visible composite pixels.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved pending a compositor-to-export pixel comparison.
 
 ## Proposed-Change
 
@@ -50,29 +49,74 @@ Reuse existing compositor predicates for channel restrictions and Blend If.
 
 ## Verification
 
-Status: source-traced; no export comparison executed.
-- Compare a PNG export of one half-canvas vector-masked raster with its reference composite.
-- Review shortcut eligibility for active Blend If and effective channel exclusions.
+[O] The extended `single_layer_native_export_strips_opaque_alpha` regression failed before the fix.
+The isolated post-fix test decodes PNG output and matches every pixel to the CPU composite with U16 alpha retained.
+[O] Full IO tests passed: 195 across 18 suites; affected Clippy passed with warnings denied.
+[O] Formatting, dependency layering, and all 20 WebAssembly packages passed.
+Main's source review confirmed the shortcut now requires no active vector mask, effective channel restriction, or Blend If.
 
 ## Publication-Blockers
 
-- Visible export mismatch and corrected eligibility behavior need focused verification.
-- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
+None.
 
 ## Next-Action
 
-Summary: Compare masked flat export
-Action: Export a one-layer vector-masked document and compare its decoded pixels with the CPU composite.
-Done-When: Record layer properties, export format, expected mask coverage, and differing pixel coordinates.
+Summary: Await upstream flat export review
+Action: Address review feedback on the submitted compositing eligibility fix.
+Done-When: Upstream closes or merges the PR.
 
 ## Pull-Request-Implementation
 
 Branch: fix/flat-export-composite-eligibility
 Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 Scope: Exclude active masks and effective blending restrictions from direct native-surface flat export.
-Commit: Pending.
-Push: Pending.
+Commit: `bf29b83c54820bf00b76674f1197ea1ad20c74c5`
+Push: `origin/fix/flat-export-composite-eligibility`.
 Checks:
-- Pending.
+- Baseline enabled-vector-mask PNG export: alpha missing.
+- Isolated post-fix test: decoded U16 PNG pixels match the CPU composite.
+- Full IO suite: 195 passed across 18 suites.
+- Affected Clippy with warnings denied, formatting, layering, and all 20 WebAssembly packages: passed.
+Main source review: approved the predicate boundaries.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.
+
+## Publication-Draft
+
+Target: `storytold/photocraft:main`
+Head: `MikeeI:fix/flat-export-composite-eligibility`
+Title: Preserve compositing properties in single-layer flat export
+
+### Problem
+
+The single-layer native export shortcut can bypass active compositing properties.
+An enabled vector mask is ignored, so a PNG export can lack the visible alpha mask.
+Effective Blend If and channel restrictions also must not take this shortcut.
+
+### Change
+
+Reject the shortcut for an enabled vector mask and reuse existing compositor predicates for effective channel restrictions and Blend If.
+Leave the direct native path available when these properties do not alter the visible result.
+
+### Verification
+
+- The existing `single_layer_native_export_strips_opaque_alpha` regression failed before the fix for an enabled vector mask.
+- The isolated post-fix test decodes PNG output and compares every pixel with the CPU composite, including U16 alpha.
+- Full IO tests passed: 195 tests across 18 suites.
+- Affected Clippy with warnings denied, formatting, dependency layering, and all 20 WebAssembly packages passed.
+- Main reviewed the predicate boundaries against the compositing implementations.
+
+Runtime coverage in this regression is for the vector mask; Blend If and channel exclusion boundaries were reviewed in source.
+
+### Disclosure
+
+Investigated thoroughly with GPT-6.1 Sol (extra high reasoning effort), using [Oh My Pi](https://github.com/can1357/oh-my-pi) as the agent framework.
+I reviewed this contribution with GPT-6.1 Sol at xhigh reasoning effort.
+
+This report is not generic or unreviewed AI-generated output.
+Its claims were checked against the cited evidence, and it includes the relevant detail intended to help maintainers resolve the issue.
+
+If reports like this are not useful to the project, please let me know and I will refrain from submitting similar ones.
+My intent is to help without wasting maintainer time or energy or discouraging their work.
+
+Thank you for your work.
