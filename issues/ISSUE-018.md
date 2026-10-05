@@ -1,6 +1,6 @@
 # ISSUE-018 — session: colliding persisted document IDs share autosave ownership
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -21,7 +21,8 @@ The corrected proposal preserves already unique identities and accounts for call
 
 Trigger: open two native bundles containing the same document ID and edit both.
 [S] Both documents select the same Autosaver and recovery path, allowing one snapshot to replace the other.
-No multi-document recovery experiment was executed.
+[O] An isolated existing UI regression admitted two equal-ID documents at equal dirty revisions and observed only one autosave request.
+This proves suppression at the autosave ownership boundary, not a completed disk-recovery experiment.
 
 ## Evidence
 
@@ -36,8 +37,8 @@ No multi-document recovery experiment was executed.
 Coverage: local ledger checked on 2026-10-05.
 `ISSUE-013` concerns LUT cleanup on reopening; it does not own simultaneous document-identity collisions.
 `ISSUE-019` concerns overlapping writer publication rather than session admission.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved pending identity and smart-child compatibility verification.
+Upstream inventory covered all 102 issue/PR records, relevant discussions, and public releases; no matching root cause was found.
+GitHub Discussions are disabled; project Discord history was inaccessible.
 
 ## Proposed-Change
 
@@ -57,20 +58,22 @@ Preserve Edit Contents save-back behavior and recovery-entry provenance.
 
 ## Verification
 
-Status: source-traced; no session identity experiment executed.
-- Open two same-ID bundles, edit both, and verify distinct runtime IDs and independent recoverable snapshots.
-- Open and save a Smart-Object child and verify its parent link remains valid.
+[O] The extended `prefs_ui::tests::autosave_runs_for_dirty_documents` failed before the fix: one request instead of two.
+The admission loop and SmartLink caller migration are implemented.
+The isolated focused regression and required crate/portability checks are running.
+[S] Independent xhigh review approved the admission invariant and SmartLink caller migration.
+The review found no further identity-dependent admission caller; semantic references were unavailable.
+The regression proves distinct autosave requests, not two recovered on-disk bundles.
 
 ## Publication-Blockers
 
-- Duplicate-ID recovery and SmartLink preservation evidence are missing.
-- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
+- Post-fix runtime checks and SmartLink compatibility remain pending.
 
 ## Next-Action
 
-Summary: Reproduce document identity collision
-Action: Open two disposable same-ID native bundles and trace session IDs and recovery keys during autosave.
-Done-When: Record admitted IDs, saver keys, persisted snapshots, and the existing SmartLink identity contract.
+Summary: Verify unique admission fix
+Action: Finish the isolated validation chain and review before publishing.
+Done-When: Both copies autosave independently, affected tests pass, and the scoped PR is published.
 
 ## Pull-Request-Implementation
 
@@ -80,6 +83,7 @@ Scope: Resolve colliding document identities at admission and migrate identity-d
 Commit: Pending.
 Push: Pending.
 Checks:
-- Pending.
+- Isolated baseline autosave regression: failed with one request instead of two.
+- Post-fix verification: running in target/issue-018.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.

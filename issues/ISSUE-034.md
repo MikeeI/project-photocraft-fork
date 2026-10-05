@@ -1,6 +1,6 @@
 # ISSUE-034 — PSD export: full channel budget silently drops Quick Mask
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -21,7 +21,7 @@ Review mapping: `E21`, VALID; severity Medium.
 Trigger: export opaque RGB with 53 saved extra channels and an active Quick Mask.
 [S] Saved channels exactly consume the supported budget, so their truncation warning does not fire.
 [S] Quick Mask pixels and their identifying resource are omitted without a warning.
-No capacity-bound export was executed.
+[O] A capacity-bound public PSD export omitted Quick Mask without a warning before the fix.
 
 ## Evidence
 
@@ -34,8 +34,10 @@ No capacity-bound export was executed.
 
 Coverage: local ledger checked on 2026-10-05; no matching root cause.
 `ISSUE-033` owns flat-format warning loss; PSD uses a separate capacity-dependent branch.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved pending a narrow channel-capacity export check.
+Upstream inventory covered all 102 issue/PR records, relevant discussions, and public releases.
+https://github.com/storytold/photocraft/pull/63 surfaces warnings but does not generate this missing capacity warning.
+No duplicate or active implementation was found.
+GitHub Discussions are disabled; project Discord history was inaccessible.
 
 ## Proposed-Change
 
@@ -49,28 +51,32 @@ Emit an explicit Quick Mask loss warning when the mask is present but no channel
 
 ## Verification
 
-Status: source-traced; no channel-capacity experiment executed.
-- Export opaque RGB with 53 extra channels and Quick Mask and inspect warnings, channel count, and resource 1022.
+[O] The extended `channel_options_spot_and_quick_mask_roundtrip` failed before the fix with an empty warning list.
+The focused post-fix run passed, asserting a Quick Mask warning, 56 output channels, and no resource 1022.
+Isolated full IO, Clippy, layering, and WebAssembly verification is running in target/issue-034.
+[S] Independent xhigh review approved the bounded diff and confirmed unchanged saved-channel priority and resource ownership.
 
 ## Publication-Blockers
 
-- Capacity-bound Quick Mask omission and warning behavior need verification.
-- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
+- The isolated required verification chain remains pending.
 
 ## Next-Action
 
-Summary: Reproduce Quick Mask capacity loss
-Action: Export a disposable opaque RGB document whose 53 saved channels leave no Quick Mask slot.
-Done-When: Record input channels, Quick Mask state, warning list, output channels, and resource presence.
+Summary: Verify Quick Mask loss warning
+Action: Finish the active isolated validation chain, then publish the independently reviewed warning fix.
+Done-When: Required gates pass and the scoped warning PR is published.
 
 ## Pull-Request-Implementation
 
 Branch: fix/warn-quick-mask-capacity
 Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 Scope: Warn when the PSD channel budget excludes a present Quick Mask.
-Commit: Pending.
-Push: Pending.
+Commit: `b243ccb6a5f30cddcb81d2dce7d389af1d3205c9`
+Push: `origin/fix/warn-quick-mask-capacity`.
 Checks:
-- Pending.
+- Baseline capacity warning regression: failed with empty warnings.
+- Focused post-fix capacity regression: passed.
+- Full isolated verification: running.
+- Independent xhigh source review: approved.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.

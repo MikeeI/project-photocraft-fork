@@ -1,6 +1,6 @@
 # ISSUE-022 — PSD import: redundant-mask cleanup deletes the selected real mask
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -21,7 +21,8 @@ The corrected condition must follow actual mask-source selection, not the presen
 
 Trigger: import a shape, text, or smart layer with vector-derived user-mask coverage and a separate real channel `-3`.
 [S] Import chooses the real mask, then clears it; re-export cannot preserve the dropped editable mask.
-No PSD fixture roundtrip was executed.
+[O] A synthetic shape passed to public `psd_to_document` lost its selected real mask before the fix.
+The fixture asserts Shape content explicitly; serializing its empty vector tags first had produced a misleading raster case.
 
 ## Evidence
 
@@ -34,8 +35,8 @@ No PSD fixture roundtrip was executed.
 
 Coverage: local ledger checked on 2026-10-05; no matching root cause.
 Vector-mask compilation cost in `ISSUE-011` does not concern PSD mask-source ownership.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved pending a representative PSD mask roundtrip.
+Upstream inventory covered all 102 issue/PR records, relevant discussions, and public releases; no matching root cause was found.
+GitHub Discussions are disabled; project Discord history was inaccessible.
 
 ## Proposed-Change
 
@@ -50,20 +51,22 @@ Preserve a selected real mask; remove only synthetic coverage already represente
 
 ## Verification
 
-Status: source-traced; no real-fixture or synthetic PSD roundtrip executed.
-- Import and re-export a layer with independent real channel `-3` and compare its mask values.
-- Verify purely synthetic coverage is still not applied twice.
+[O] The existing `vector_rendered_mask_not_doubled_on_shapes` extension failed at the missing selected real mask.
+The source now shares actual real-mask selection across import and both synthetic-cleanup paths.
+Post-fix isolated verification is queued behind the two active Cargo chains.
+[S] Independent xhigh review approved the shared source-selection predicate and both cleanup guards.
+The direct synthetic Shape assertion reproduces the defect; the byte roundtrip checks mask sample preservation.
+No Photoshop corpus, complete mask-property coverage, or runtime coverage of both cleanup paths is claimed.
 
 ## Publication-Blockers
 
-- Representative real-mask preservation and synthetic-only rendering evidence are missing.
-- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
+- Post-fix mask preservation, exported roundtrip, and required gates remain pending.
 
 ## Next-Action
 
-Summary: Reproduce real PSD mask loss
-Action: Trace a PSD carrying synthetic coverage and an independent real user mask through import and re-export.
-Done-When: Record the selected channel, imported LayerMask, exported channels, and mask-pixel differences.
+Summary: Verify selected mask preservation
+Action: Run isolated IO verification when a bounded build slot becomes available.
+Done-When: The selected real mask survives import/export and the scoped PR is published.
 
 ## Pull-Request-Implementation
 
@@ -73,6 +76,7 @@ Scope: Preserve selected real PSD masks while still eliminating redundant synthe
 Commit: Pending.
 Push: Pending.
 Checks:
-- Pending.
+- Baseline direct-import regression: failed at missing selected mask.
+- Post-fix isolated IO gates: queued.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.
