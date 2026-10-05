@@ -1,8 +1,8 @@
 # ISSUE-033 — flat export: omitted channels lack document-level loss warnings
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -57,10 +57,22 @@ Status: source-traced; no warning or reopen comparison executed.
 ## Publication-Blockers
 
 - General and mode-specific export warning behavior needs focused verification.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Inspect flat channel-loss warnings
 Action: Compare warnings and reopened channels for general and mode-specific flat exports with saved extra channels.
 Done-When: Record export branches, input channels, warning lists, and the data absent after reopening.
+
+## Pull-Request-Implementation
+
+Branch: fix/warn-flat-channel-loss
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Report saved-channel and Quick Mask omissions across every flat-export branch.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

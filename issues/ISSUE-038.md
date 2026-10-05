@@ -1,8 +1,8 @@
 # ISSUE-038 — file picker: read failures collapse into cancellation
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -60,10 +60,22 @@ Status: source-traced; no native-dialog experiment executed.
 ## Publication-Blockers
 
 - Native-dialog failure and genuine-cancellation behavior need verification.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce silent picker read failure
 Action: Exercise native File Open with a selected file that cannot be read and compare genuine cancellation.
 Done-When: Record selection outcome, read error, command result, status, and visible notice behavior.
+
+## Pull-Request-Implementation
+
+Branch: fix/report-picker-read-errors
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Distinguish native picker read failures from cancellation and propagate them to visible error reporting.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

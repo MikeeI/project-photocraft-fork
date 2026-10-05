@@ -1,8 +1,8 @@
 # ISSUE-035 — effect cache: surface identity omits mask default pixels
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -56,10 +56,22 @@ Status: source-traced; no application render comparison executed.
 ## Publication-Blockers
 
 - Deterministic warm/cold-cache output mismatch needs runtime verification.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Compare mask effect-cache results
 Action: Render one shadowed raster across a Reveal All to Hide All transition with warm and cleared caches.
 Done-When: Record mask defaults, cache conditions, expected coverage, and exact differing output pixels.
+
+## Pull-Request-Implementation
+
+Branch: fix/hash-mask-default-pixels
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Include surface default pixels and format in CPU effect-cache identity.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

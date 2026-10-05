@@ -1,8 +1,8 @@
 # ISSUE-031 — PSD import: white-unmatting clips supported HDR samples
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -53,10 +53,22 @@ Status: source-traced numeric counterexample; no PSD runtime import executed.
 ## Publication-Blockers
 
 - A supported transparent float PSD fixture and importer output need verification.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce HDR unmatte clipping
 Action: Import a disposable transparent float PSD with a known white-matted HDR sample.
 Done-When: Record encoded samples, alpha, imported sample type, and expected versus actual straight color values.
+
+## Pull-Request-Implementation
+
+Branch: fix/preserve-hdr-unmatte
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Preserve supported F32 sample range while undoing the PSD merged-image white matte.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

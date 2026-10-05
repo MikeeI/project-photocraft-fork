@@ -1,8 +1,8 @@
 # ISSUE-021 — smart objects: failed save-back still removes the edited child
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -61,10 +61,22 @@ Status: source-traced; no command-level reproduction executed.
 ## Publication-Blockers
 
 - Failed-save-back close and batch-close propagation evidence are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce failed smart-child close
 Action: Attempt to close an edited smart child after replacing its linked parent layer in a disposable session.
 Done-When: Record the error, parent state, child contents, link retention, and document membership.
+
+## Pull-Request-Implementation
+
+Branch: fix/preserve-failed-smart-child
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Propagate required smart-child save-back failures and preserve child contents and links.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

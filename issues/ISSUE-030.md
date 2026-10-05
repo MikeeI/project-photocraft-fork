@@ -1,8 +1,8 @@
 # ISSUE-030 — native import: reordered ZIP entries defeat format detection
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -54,10 +54,22 @@ Status: source-traced; no reordered bundle imported.
 ## Publication-Blockers
 
 - Reordered native bundle acceptance through the real import boundary needs verification.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce reordered bundle rejection
 Action: Repackage a disposable native bundle with a non-manifest first entry and compare direct and normal imports.
 Done-When: Record ZIP entry order, input name, native loader result, and ordinary import result.
+
+## Pull-Request-Implementation
+
+Branch: fix/import-reordered-native-zip
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Route declared native bundles to the native loader independently of ZIP entry order.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

@@ -1,8 +1,8 @@
 # ISSUE-027 — history: unchanged bit depth clears redo
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: Medium
@@ -56,10 +56,22 @@ Status: source-traced; no history sequence executed.
 ## Publication-Blockers
 
 - Runtime redo-loss reproduction and the intended unchanged-depth contract need confirmation.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce unchanged-depth redo loss
 Action: Trace history and revision across edit, undo, and selection of the already active bit depth.
 Done-When: Record before/after history, redo availability, unchanged pixel depth, and the applicable no-op contract.
+
+## Pull-Request-Implementation
+
+Branch: fix/preserve-noop-depth-history
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Preserve revision and redo when an unchanged bit depth bypasses conversion.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

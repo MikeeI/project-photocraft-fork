@@ -1,8 +1,8 @@
 # ISSUE-017 — autosave: queue acknowledgment suppresses failed-save retries
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -62,10 +62,22 @@ Status: source-traced; no worker/failure experiment executed.
 ## Publication-Blockers
 
 - Completed-revision acknowledgment and unchanged-revision retry evidence are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce failed autosave suppression
 Action: Observe one unchanged dirty revision across a failed autosave and the next writable interval.
 Done-When: Record queued and completed revisions, worker result, UI acknowledgment, retry behavior, and error visibility.
+
+## Pull-Request-Implementation
+
+Branch: fix/autosave-completion
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Confirm autosaved revisions only after successful background persistence and retry failed revisions.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

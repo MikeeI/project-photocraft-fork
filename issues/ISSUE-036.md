@@ -1,8 +1,8 @@
 # ISSUE-036 — group composition: opacity mixes straight-alpha colors directly
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -56,10 +56,22 @@ Status: equation evaluated; no application rendering reproduction executed.
 ## Publication-Blockers
 
 - Runtime group rendering and affected clipping/mask compatibility evidence are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce group alpha darkening
 Action: Render an opaque red child inside a half-opacity pass-through group on a transparent canvas.
 Done-When: Record raw composite RGBA and white-background output against the analytic expected values.
+
+## Pull-Request-Implementation
+
+Branch: fix/premultiplied-group-coverage
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Mix pass-through group coverage in premultiplied space and return straight-alpha samples.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

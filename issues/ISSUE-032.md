@@ -1,8 +1,8 @@
 # ISSUE-032 — PSD export: eight-bit opacity detection drops U16 alpha
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Low
 Root-Cause-Confidence: High
@@ -54,10 +54,22 @@ Status: source-traced; no U16 export/decode executed.
 ## Publication-Blockers
 
 - Sample-level merged-alpha preservation evidence is missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Compare U16 merged alpha
 Action: Export and decode a near-opaque U16 document and inspect the merged transparency plane.
 Done-When: Record input alpha, output depth, channel presence, decoded alpha, and unchanged U8 expectations.
+
+## Pull-Request-Implementation
+
+Branch: fix/preserve-u16-merged-alpha
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Determine merged PSD opacity at the actual exported sample precision.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

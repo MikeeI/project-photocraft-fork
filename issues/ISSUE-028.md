@@ -1,8 +1,8 @@
 # ISSUE-028 — image rotation: lock bypass omits nested layers
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -53,10 +53,22 @@ Status: source-traced; no rotation sequence executed.
 ## Publication-Blockers
 
 - Nested-lock rotation behavior and unchanged lock-state evidence are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Compare nested locked rotation
 Action: Run arbitrary image rotation on equivalent root-level and grouped locked raster layers.
 Done-When: Record command parameters, errors or output geometry, and before/after lock flags.
+
+## Pull-Request-Implementation
+
+Branch: fix/rotate-nested-locked-layers
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Apply whole-image rotation lock policy recursively while preserving stored locks and Free Transform restrictions.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

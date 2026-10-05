@@ -1,8 +1,8 @@
 # ISSUE-022 — PSD import: redundant-mask cleanup deletes the selected real mask
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -57,10 +57,22 @@ Status: source-traced; no real-fixture or synthetic PSD roundtrip executed.
 ## Publication-Blockers
 
 - Representative real-mask preservation and synthetic-only rendering evidence are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce real PSD mask loss
 Action: Trace a PSD carrying synthetic coverage and an independent real user mask through import and re-export.
 Done-When: Record the selected channel, imported LayerMask, exported channels, and mask-pixel differences.
+
+## Pull-Request-Implementation
+
+Branch: fix/preserve-real-psd-mask
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Preserve selected real PSD masks while still eliminating redundant synthetic coverage.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

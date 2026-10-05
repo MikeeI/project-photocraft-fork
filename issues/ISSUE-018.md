@@ -1,8 +1,8 @@
 # ISSUE-018 — session: colliding persisted document IDs share autosave ownership
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -64,10 +64,22 @@ Status: source-traced; no session identity experiment executed.
 ## Publication-Blockers
 
 - Duplicate-ID recovery and SmartLink preservation evidence are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce document identity collision
 Action: Open two disposable same-ID native bundles and trace session IDs and recovery keys during autosave.
 Done-When: Record admitted IDs, saver keys, persisted snapshots, and the existing SmartLink identity contract.
+
+## Pull-Request-Implementation
+
+Branch: fix/unique-session-document-ids
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Resolve colliding document identities at admission and migrate identity-dependent callers.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

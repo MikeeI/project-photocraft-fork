@@ -1,8 +1,8 @@
 # ISSUE-015 — recovery: delete snapshots before durable replacement
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -57,10 +57,22 @@ Status: source-traced; no recovery or crash experiment executed.
 ## Publication-Blockers
 
 - Failed-load and repeated-crash preservation evidence is missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce recovery snapshot deletion
 Action: Trace one disposable recovery entry through a failed load and an immediate post-recovery restart.
 Done-When: Record entry existence, load results, session adoption, and whether the second launch can recover it.
+
+## Pull-Request-Implementation
+
+Branch: fix/retain-recovery-snapshots
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Retain recovery input until successful replacement or explicit discard owns deletion.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

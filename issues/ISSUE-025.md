@@ -1,8 +1,8 @@
 # ISSUE-025 — smart objects: explicit discard still commits child edits
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -55,10 +55,22 @@ Status: source-traced; no UI discard sequence executed.
 ## Publication-Blockers
 
 - Explicit-discard behavior and other frontend close contracts need verification.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce ignored smart-child discard
 Action: Close a visibly edited smart child with Don't Save and inspect the parent before any later save.
 Done-When: Record the selected decision, parent pixels, parent revision, and child removal.
+
+## Pull-Request-Implementation
+
+Branch: fix/discard-smart-child-edits
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Carry explicit discard decisions into smart-child close without changing Save or Cancel behavior.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

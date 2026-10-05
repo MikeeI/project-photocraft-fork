@@ -1,8 +1,8 @@
 # ISSUE-037 — proxy rendering: artboard rectangles retain full-size coordinates
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -58,10 +58,22 @@ Status: source-traced; no rendering reproduction executed.
 ## Publication-Blockers
 
 - Thumbnail and interactive-preview geometry evidence is missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Compare proxy artboard clipping
 Action: Render a large right-side artboard through the thumbnail and interactive filter-preview paths.
 Done-When: Record proxy factors, original and reduced bounds, clipping regions, and inspected output images.
+
+## Pull-Request-Implementation
+
+Branch: fix/scale-proxy-artboards
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Scale artboard clipping rectangles inside proxy creation for all proxy consumers.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

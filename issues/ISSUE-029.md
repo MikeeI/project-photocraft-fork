@@ -1,8 +1,8 @@
 # ISSUE-029 — native loading: fresh layer IDs leave stale variable targets
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -56,10 +56,22 @@ Status: source-traced; no remapped-template experiment executed.
 ## Publication-Blockers
 
 - Runtime data-set targeting after ID remapping needs verification.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce remapped variable targeting
 Action: Load a disposable native template with fresh IDs and apply one data-set value through the engine.
 Done-When: Record stored and loaded layer IDs, variable references, and the actual modified layer.
+
+## Pull-Request-Implementation
+
+Branch: fix/remap-variable-layer-ids
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Remap variable layer references with the native loader's existing layer identity map.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

@@ -1,8 +1,8 @@
 # ISSUE-016 — file open: script events retarget the imported save path
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -57,10 +57,22 @@ Status: source-traced; no UI/script experiment executed.
 ## Publication-Blockers
 
 - Event-driven path ownership and safe-save reproduction are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce open-event path retargeting
 Action: Open a disposable PSD with an open-event script that creates another document and inspect both paths.
 Done-When: Record imported and active document IDs, path assignments, event commands, and Save destination selection.
+
+## Pull-Request-Implementation
+
+Branch: fix/open-event-path-ownership
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Bind an imported document's save path before open-event scripts can change active identity.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

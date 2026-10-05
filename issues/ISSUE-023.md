@@ -1,8 +1,8 @@
 # ISSUE-023 — flat export: native shortcut bypasses active compositing properties
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -57,10 +57,22 @@ Status: source-traced; no export comparison executed.
 ## Publication-Blockers
 
 - Visible export mismatch and corrected eligibility behavior need focused verification.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Compare masked flat export
 Action: Export a one-layer vector-masked document and compare its decoded pixels with the CPU composite.
 Done-When: Record layer properties, export format, expected mask coverage, and differing pixel coordinates.
+
+## Pull-Request-Implementation
+
+Branch: fix/flat-export-composite-eligibility
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Exclude active masks and effective blending restrictions from direct native-surface flat export.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

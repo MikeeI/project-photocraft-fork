@@ -1,8 +1,8 @@
 # ISSUE-020 — close workflow: stale dirty list misses smart-object parent edits
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -59,10 +59,22 @@ Status: source-traced; no UI close sequence executed.
 ## Publication-Blockers
 
 - Close All, Exit, and revision-scoped decision behavior need UI reproduction.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce stale close prompt list
 Action: Close a clean-parent/dirty-child session and choose Save for the child while tracing dirty revisions.
 Done-When: Record prompts, save-back effects, parent persistence, and the final close or exit decision.
+
+## Pull-Request-Implementation
+
+Branch: fix/revision-aware-close-prompts
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Reconcile close decisions with newly dirty parents and document revisions without repeated discard prompts.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

@@ -1,8 +1,8 @@
 # ISSUE-019 — native storage: shared temporary files break concurrent publication
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -57,10 +57,22 @@ Status: source-traced interleaving only; no concurrent-write experiment executed
 ## Publication-Blockers
 
 - The proposed overlapping-writer interleaving and directory transaction behavior need controlled execution.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce overlapping native writers
 Action: Force two isolated writers to overlap publication at one disposable native destination.
 Done-When: Record writer ordering, temporary inode ownership, rename results, visible bytes, and bundle loadability.
+
+## Pull-Request-Implementation
+
+Branch: fix/concurrent-native-publication
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Isolate temporary writers and coordinate native directory publication with garbage collection across processes.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

@@ -1,8 +1,8 @@
 # ISSUE-034 — PSD export: full channel budget silently drops Quick Mask
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -55,10 +55,22 @@ Status: source-traced; no channel-capacity experiment executed.
 ## Publication-Blockers
 
 - Capacity-bound Quick Mask omission and warning behavior need verification.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce Quick Mask capacity loss
 Action: Export a disposable opaque RGB document whose 53 saved channels leave no Quick Mask slot.
 Done-When: Record input channels, Quick Mask state, warning list, output channels, and resource presence.
+
+## Pull-Request-Implementation
+
+Branch: fix/warn-quick-mask-capacity
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Warn when the PSD channel budget excludes a present Quick Mask.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

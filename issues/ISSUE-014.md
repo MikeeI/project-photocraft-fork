@@ -1,8 +1,8 @@
 # ISSUE-014 — file save: destructive overwrite before successful publication
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -57,10 +57,22 @@ Status: source-traced; no failed-write experiment executed.
 ## Publication-Blockers
 
 - Controlled failed-write reproduction and platform-specific replacement behavior remain unverified.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce failed document overwrite
 Action: Exercise an existing-file save on a disposable failure-injected filesystem through the actual document writer.
 Done-When: Record the command, revision, write failure, before/after bytes, readability, and dirty state.
+
+## Pull-Request-Implementation
+
+Branch: fix/atomic-document-save
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Publish desktop and engine document saves through exclusively owned temporary siblings.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.

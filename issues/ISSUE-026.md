@@ -1,8 +1,8 @@
 # ISSUE-026 — canvas geometry: surface traversal omits smart-filter masks
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -56,10 +56,22 @@ Status: source-traced; no geometry experiment executed.
 ## Publication-Blockers
 
 - Resize and post-translation refresh behavior need runtime verification.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
 
 ## Next-Action
 
 Summary: Reproduce smart-filter mask misalignment
 Action: Resize and translate a disposable smart-object document with a sharp nonuniform filter mask.
 Done-When: Record transforms, mask bounds, refresh timing, and expected versus actual effect boundaries.
+
+## Pull-Request-Implementation
+
+Branch: fix/transform-smart-filter-masks
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Include smart-filter masks in mask-aware canvas geometry traversal without double transforms.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Pending.
+
+The user authorized implementation and publication of a verified fix PR on 2026-10-05.
