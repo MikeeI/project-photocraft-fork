@@ -17,14 +17,14 @@ Next finding ID: ISSUE-039
 | ID | Finding | State | Authorized-Work | Publication-Target | Contribution-Priority | Next-Action | External-Reference |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | [ISSUE-001](issues/ISSUE-001.md) | compose: per-pixel gradient stop preparation | Submitted | Pull-Request-Implementation | New-pull-request | High | Await upstream gradient review | https://github.com/storytold/photocraft/pull/103 |
-| [ISSUE-002](issues/ISSUE-002.md) | compose: redundant effect application halo | Implementing | Pull-Request-Implementation | New-pull-request | High | Complete halo verification | Not published. |
+| [ISSUE-002](issues/ISSUE-002.md) | compose: redundant effect application halo | Submitted | Pull-Request-Implementation | New-pull-request | High | Await upstream halo review | https://github.com/storytold/photocraft/pull/110 |
 | [ISSUE-003](issues/ISSUE-003.md) | compose: repeated full-pattern conversion | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream pattern review | https://github.com/storytold/photocraft/pull/104 |
 | [ISSUE-004](issues/ISSUE-004.md) | compose: repeated effect metadata derivation | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Complete metadata verification | Not published. |
 | [ISSUE-005](issues/ISSUE-005.md) | UI: offscreen layer thumbnail work | Implementing | Pull-Request-Implementation | New-pull-request | High | Complete offscreen UI verification | Not published. |
 | [ISSUE-006](issues/ISSUE-006.md) | UI: redundant active-layer clone | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Complete borrowing UI verification | Not published. |
 | [ISSUE-007](issues/ISSUE-007.md) | UI: repeated uncached content bounds | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Verify bounds adoption tradeoff | Not published. |
 | [ISSUE-008](issues/ISSUE-008.md) | UI: channel-view thumbnail invalidation | Implementing | Pull-Request-Implementation | New-pull-request | High | Verify channel snapshot invalidation | Not published. |
-| [ISSUE-009](issues/ISSUE-009.md) | compose: unnecessary backdrop snapshots | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Complete backdrop verification | Not published. |
+| [ISSUE-009](issues/ISSUE-009.md) | compose: unnecessary backdrop snapshots | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream backdrop review | https://github.com/storytold/photocraft/pull/109 |
 | [ISSUE-010](issues/ISSUE-010.md) | compose: unused proxy source-column copies | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Complete encoded proxy verification | Not published. |
 | [ISSUE-011](issues/ISSUE-011.md) | compose: repeated vector-mask compilation | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Resolve vector performance regression | Not published. |
 | [ISSUE-012](issues/ISSUE-012.md) | UI: orphaned thumbnail texture handles | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Verify thumbnail cleanup lifecycle | Not published. |

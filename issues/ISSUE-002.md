@@ -1,9 +1,9 @@
 # ISSUE-002 — compose: redundant effect application halo
 
-State: Implementing
+State: Submitted
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
-External-Reference: Not published.
+External-Reference: https://github.com/storytold/photocraft/pull/110
 Contribution-Priority: High
 Root-Cause-Confidence: High
 Finding-Category: Performance
@@ -30,9 +30,10 @@ Review mapping: `P2`, VALID; severity High.
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching record.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved pending numerical equivalence and upstream ownership search.
+Coverage: upstream issues, open/closed PRs, releases, and local ledger searched on 2026-10-05.
+Discussions are disabled; no matching application-halo correction was found.
+Related banding work https://github.com/storytold/photocraft/pull/71 has a distinct root cause.
+The affected compose sources remain unchanged at `upstream/main@7e7864afae8f779afff063a68edf208e30fe592c`.
 
 ## Proposed-Change
 
@@ -61,25 +62,63 @@ Shared-host timing is not a controlled end-to-end UI benchmark.
 
 ## Publication-Blockers
 
-- Numerical before/after equivalence and representative timing evidence are missing.
-- Existing tile tests alone do not cover every affected effect combination.
-- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
+None.
+Remaining coverage limits are explicit in the draft; publication is authorized by the current user request.
 
 ## Next-Action
 
-Summary: Complete halo verification
-Action: Resume unfinished WASM validation and complete the independent PR handoff.
-Done-When: Record complete gates, commit, push, and an evidence-scoped draft.
+Summary: Await upstream halo review
+Action: Respond to substantive maintainer feedback on PR #110.
+Done-When: Record the upstream decision or requested follow-up.
 
 ## Pull-Request-Implementation
 
 Branch: `perf/trim-effect-application-halo`
 Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 Scope: Remove application halos while retaining complete neighborhood effect maps.
-Commit: Pending.
-Push: Pending.
+Commit: `ca81013cb18d18e118587499f988a4e41db68c39`
+Push: `MikeeI/project-photocraft-fork:perf/trim-effect-application-halo`
 Checks:
 - Independent compose tests: 97 unit and three integration tests passed; Clippy and layering passed.
 - Existing tile-parity test now compares full output at U8/U16/F32 and tile sizes 1/7/33.
-- WASM remains incomplete; independent source review found no blocker.
-- Worktree: `.git/omp-worktrees/issue-002`; further work paused when the user prioritized finished PRs.
+- WASM passed for all 20 packages; independent GPT-6.1 Sol/xhigh source review found no blocker.
+- Formatting and diff checks passed; no fork tracking files enter the contribution.
+
+## Publication-Draft
+
+Target: `storytold/photocraft:main`
+Title: `perf(compose): avoid redundant effect-halo rendering`
+
+```markdown
+## Summary
+
+Both regular and clipped-effect composition render content over the requested output rectangle rather than inflating it by the effect margin.
+Full bounds-plus-margin effect maps remain unchanged, retaining neighborhood inputs while avoiding repeated halo content work per tile.
+Absolute paint coordinates, effect reach, clipping, and map construction keep their existing owners.
+
+## Validation
+
+- `cargo test --locked -p photocraft-compose`: 97 unit and 3 integration tests passed.
+- The existing tile-parity test now compares complete shadow-plus-stroke output at U8/U16/F32 and tile sizes 1, 7, and 33.
+- `cargo clippy --locked -p photocraft-compose --all-targets -- -D warnings`: passed.
+- `cargo xtask layers` and `cargo xtask wasm`: passed.
+- Formatting, diff checks, and independent source review completed.
+
+A synthetic 6000×4000 RGB shadow fixture with eight Rayon workers and five warm samples measured 3018.106 ms before and 1621.630 ms after.
+The fixture output digest matched (`87052d1c71274d2e`).
+These uncontrolled shared-host timings are workload-specific, not a universal speedup or blanket pixel-equivalence claim.
+The base is ff53be7; affected compose sources remain unchanged at upstream 7e7864a.
+
+### Disclosure
+
+Investigated thoroughly with GPT-6.1 Sol (extra high reasoning effort), using [Oh My Pi](https://github.com/can1357/oh-my-pi) as the agent framework.
+I reviewed this contribution with GPT-6.1 Sol at xhigh reasoning effort.
+
+This report is not generic or unreviewed AI-generated output.
+Its claims were checked against the cited evidence, and it includes the relevant detail intended to help maintainers resolve the issue.
+
+If reports like this are not useful to the project, please let me know and I will refrain from submitting similar ones.
+My intent is to help without wasting maintainer time or energy or discouraging their work.
+
+Thank you for your work.
+```
