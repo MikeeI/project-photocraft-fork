@@ -1,6 +1,6 @@
 # ISSUE-004 — compose: repeated effect metadata derivation
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -65,6 +65,18 @@ Measurement: none; no thread-scaling or end-to-end speedup is established.
 
 ## Next-Action
 
-Summary: Measure effect metadata traversal
-Action: Capture repeated bounds and identity work during a warm-cache refresh of a large effect layer.
-Done-When: Record tile counts, metadata visits, measured waiting, command, source revision, and latency.
+Summary: Complete metadata verification
+Action: Finish workload evidence and the remaining WASM gate for the applied candidate.
+Done-When: Record complete checks and a measured adoption decision before committing.
+
+## Pull-Request-Implementation
+
+Branch: `perf/prepare-effect-metadata`
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Prepare render-owned effect metadata with distinct culling and document-canvas bounds.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Independent compose tests: 97 unit and three integration tests passed; Clippy and layering passed.
+- WASM remains incomplete; GPT-6.1 Sol/xhigh source review found no blocker.
+- Worktree: `.git/omp-worktrees/issue-004`; paused to prioritize finished PRs.

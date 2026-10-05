@@ -1,6 +1,6 @@
 # ISSUE-010 — compose: unused proxy source-column copies
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -63,6 +63,19 @@ Measurement: those counts do not establish proportional memory-bus traffic or la
 
 ## Next-Action
 
-Summary: Measure proxy row-copy volume
-Action: Capture source-row copy volume and temporary allocations during fixed-factor proxy creation.
-Done-When: Record source dimensions, factors, formats, sparsity, byte counts, command, and latency.
+Summary: Complete encoded proxy verification
+Action: Measure the applied encoded sampler and finish the remaining WASM gate.
+Done-When: Record representative performance, complete checks, and the independent PR handoff.
+
+## Pull-Request-Implementation
+
+Branch: `perf/stride-proxy-source-pixels`
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Add raster-owned encoded nearest-neighbor sampling without unused source-column copies.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Independent compose tests: 97 unit and three integration tests passed; 14 raster tests passed.
+- Clippy and layering passed; WASM remains incomplete.
+- Existing proxy test covers F32 NaN payloads, signed zero, sparse defaults, and negative coordinates.
+- Source review found no blocker; worktree `.git/omp-worktrees/issue-010` remains unpublished.

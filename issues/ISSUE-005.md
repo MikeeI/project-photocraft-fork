@@ -1,6 +1,6 @@
 # ISSUE-005 — UI: offscreen layer thumbnail work
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -65,6 +65,17 @@ Measurement: no frame-time improvement or workload frequency has been observed.
 
 ## Next-Action
 
-Summary: Measure offscreen thumbnail work
-Action: Capture thumbnail requests and tile visits during repaints of a scrolled long Layers panel.
-Done-When: Record visible and total row counts, command or interaction sequence, counters, and frame timing.
+Summary: Complete offscreen UI verification
+Action: Verify clipped-thumbnail rendering and skipped work, then complete branch-specific quality gates.
+Done-When: Record inspected screenshots, behavioral evidence, and complete checks before committing.
+
+## Pull-Request-Implementation
+
+Branch: `perf/skip-offscreen-thumbnails`
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Gate only offscreen thumbnail image work, preserving row interactions and outside decorations.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Independent source review found no blocker; complete runtime and visual validation remain pending.
+- Worktree: `.git/omp-worktrees/issue-005`; unfinished checks paused to prioritize finished PRs.

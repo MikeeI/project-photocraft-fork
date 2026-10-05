@@ -1,6 +1,6 @@
 # ISSUE-006 — UI: redundant active-layer clone
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -62,6 +62,18 @@ Measurement: allocation count, frame latency, and user-visible impact have not b
 
 ## Next-Action
 
-Summary: Measure active-layer clone cost
-Action: Capture allocations and frame time with a large raster layer and a large group active in the Layers panel.
-Done-When: Record layer and tile counts, interaction sequence, allocation counts, and frame timing.
+Summary: Complete borrowing UI verification
+Action: Verify active-group controls and finish the independent UI gates.
+Done-When: Record representative interaction evidence and complete checks before committing.
+
+## Pull-Request-Implementation
+
+Branch: `perf/borrow-active-layer`
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Borrow the active layer from the existing local document Arc.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Independent source review found no blocker.
+- Earlier shared-target checks are not accepted as branch-specific evidence.
+- Worktree: `.git/omp-worktrees/issue-006`; independent gates remain incomplete after publication reprioritization.

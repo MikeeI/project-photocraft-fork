@@ -1,6 +1,6 @@
 # ISSUE-012 — UI: orphaned thumbnail texture handles
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -65,6 +65,17 @@ Measurement: actual GPU allocation, release timing, and session growth rate are 
 
 ## Next-Action
 
-Summary: Inspect thumbnail resource retention
-Action: Track thumbnail keys and texture resources across repeated layer creation, deletion, and document closure.
-Done-When: Record the operation sequence and retained counts after closure, distinguishing live handles from driver residency.
+Summary: Verify thumbnail cleanup lifecycle
+Action: Observe handle removal and recreation through Delete, Close, undo, and redo across multiple documents.
+Done-When: Record runtime resource counts, screenshots, and complete independent UI gates.
+
+## Pull-Request-Implementation
+
+Branch: `fix/prune-orphaned-thumbnails`
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Retain the union of live layer/mask thumbnail keys after document snapshot or membership changes.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Independent source review found no blocker; runtime resource evidence remains pending.
+- Worktree: `.git/omp-worktrees/issue-012`; unfinished checks paused to prioritize finished PRs.

@@ -1,6 +1,6 @@
 # ISSUE-013 — GPU canvas: orphaned display LUT resources
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -71,6 +71,21 @@ Measurement: no runtime growth rate, actual VRAM footprint, exhaustion, or corre
 
 ## Next-Action
 
-Summary: Inspect LUT cleanup lifecycle
-Action: Trace LUT resources and display signatures across closing and reopening the same color-managed native file.
-Done-When: Record document IDs, keys, signatures, retained resources, and display output without changing cleanup behavior.
+Summary: Complete LUT lifecycle verification
+Action: Finish resource-retention and visual evidence, then complete the remaining independent UI gates.
+Done-When: Record lifecycle results, screenshots, and complete checks before committing.
+
+## Pull-Request-Implementation
+
+Branch: `fix/prune-display-lut-state`
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Co-own LUT signatures with renderer resources and prune both at document synchronization.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Review exposed an introduced stale filter-preview upload marker on same-ID reopening.
+- [O] Extended `display_p3_is_converted_on_gpu_and_cpu_canvases` failed at the same-ID preview assertion before marker cleanup.
+- [O] Clearing closed-document preview markers at the same boundary made that exact test pass.
+- [O] Observed GPU RGB `[216, 124, 64]`, CPU `[217, 123, 65]`; the test's existing tolerances passed.
+- Independent review accepted the final cleanup; the remaining crate gates and screenshots are incomplete.
+- Worktree: `.git/omp-worktrees/issue-013`; unfinished checks paused to prioritize finished PRs.

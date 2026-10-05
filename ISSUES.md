@@ -16,19 +16,19 @@ Next finding ID: ISSUE-039
 
 | ID | Finding | State | Authorized-Work | Publication-Target | Contribution-Priority | Next-Action | External-Reference |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [ISSUE-001](issues/ISSUE-001.md) | compose: per-pixel gradient stop preparation | Investigating | Pull-Request-Implementation | New-pull-request | High | Measure gradient preparation | Not published. |
-| [ISSUE-002](issues/ISSUE-002.md) | compose: redundant effect application halo | Investigating | Pull-Request-Implementation | New-pull-request | High | Measure effect halo work | Not published. |
-| [ISSUE-003](issues/ISSUE-003.md) | compose: repeated full-pattern conversion | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Measure pattern conversion pressure | Not published. |
-| [ISSUE-004](issues/ISSUE-004.md) | compose: repeated effect metadata derivation | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Measure effect metadata traversal | Not published. |
-| [ISSUE-005](issues/ISSUE-005.md) | UI: offscreen layer thumbnail work | Investigating | Pull-Request-Implementation | New-pull-request | High | Measure offscreen thumbnail work | Not published. |
-| [ISSUE-006](issues/ISSUE-006.md) | UI: redundant active-layer clone | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Measure active-layer clone cost | Not published. |
-| [ISSUE-007](issues/ISSUE-007.md) | UI: repeated uncached content bounds | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Compare cold and warm bounds | Not published. |
-| [ISSUE-008](issues/ISSUE-008.md) | UI: channel-view thumbnail invalidation | Investigating | Pull-Request-Implementation | New-pull-request | High | Count view-only thumbnail rebuilds | Not published. |
-| [ISSUE-009](issues/ISSUE-009.md) | compose: unnecessary backdrop snapshots | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Measure redundant backdrop copies | Not published. |
-| [ISSUE-010](issues/ISSUE-010.md) | compose: unused proxy source-column copies | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Measure proxy row-copy volume | Not published. |
-| [ISSUE-011](issues/ISSUE-011.md) | compose: repeated vector-mask compilation | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Measure vector-mask compilation work | Not published. |
-| [ISSUE-012](issues/ISSUE-012.md) | UI: orphaned thumbnail texture handles | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Inspect thumbnail resource retention | Not published. |
-| [ISSUE-013](issues/ISSUE-013.md) | GPU canvas: orphaned display LUT resources | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Inspect LUT cleanup lifecycle | Not published. |
+| [ISSUE-001](issues/ISSUE-001.md) | compose: per-pixel gradient stop preparation | Submitted | Pull-Request-Implementation | New-pull-request | High | Await upstream gradient review | https://github.com/storytold/photocraft/pull/103 |
+| [ISSUE-002](issues/ISSUE-002.md) | compose: redundant effect application halo | Implementing | Pull-Request-Implementation | New-pull-request | High | Complete halo verification | Not published. |
+| [ISSUE-003](issues/ISSUE-003.md) | compose: repeated full-pattern conversion | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream pattern review | https://github.com/storytold/photocraft/pull/104 |
+| [ISSUE-004](issues/ISSUE-004.md) | compose: repeated effect metadata derivation | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Complete metadata verification | Not published. |
+| [ISSUE-005](issues/ISSUE-005.md) | UI: offscreen layer thumbnail work | Implementing | Pull-Request-Implementation | New-pull-request | High | Complete offscreen UI verification | Not published. |
+| [ISSUE-006](issues/ISSUE-006.md) | UI: redundant active-layer clone | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Complete borrowing UI verification | Not published. |
+| [ISSUE-007](issues/ISSUE-007.md) | UI: repeated uncached content bounds | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Verify bounds adoption tradeoff | Not published. |
+| [ISSUE-008](issues/ISSUE-008.md) | UI: channel-view thumbnail invalidation | Implementing | Pull-Request-Implementation | New-pull-request | High | Verify channel snapshot invalidation | Not published. |
+| [ISSUE-009](issues/ISSUE-009.md) | compose: unnecessary backdrop snapshots | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Complete backdrop verification | Not published. |
+| [ISSUE-010](issues/ISSUE-010.md) | compose: unused proxy source-column copies | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Complete encoded proxy verification | Not published. |
+| [ISSUE-011](issues/ISSUE-011.md) | compose: repeated vector-mask compilation | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Resolve vector performance regression | Not published. |
+| [ISSUE-012](issues/ISSUE-012.md) | UI: orphaned thumbnail texture handles | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Verify thumbnail cleanup lifecycle | Not published. |
+| [ISSUE-013](issues/ISSUE-013.md) | GPU canvas: orphaned display LUT resources | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Complete LUT lifecycle verification | Not published. |
 | [ISSUE-014](issues/ISSUE-014.md) | file save: destructive overwrite before successful publication | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce failed document overwrite | Not published. |
 | [ISSUE-015](issues/ISSUE-015.md) | recovery: delete snapshots before durable replacement | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce recovery snapshot deletion | Not published. |
 | [ISSUE-016](issues/ISSUE-016.md) | file open: script events retarget the imported save path | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce open-event path retargeting | Not published. |

@@ -1,6 +1,6 @@
 # ISSUE-009 — compose: unnecessary backdrop snapshots
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -63,6 +63,18 @@ Measurement: no allocator, bandwidth, or end-to-end timing comparison has run.
 
 ## Next-Action
 
-Summary: Measure redundant backdrop copies
-Action: Capture buffer-copy volume during pass-through-group and adjustment composition.
-Done-When: Record the layer conditions, rendered area, allocation and copy counts, command, and latency.
+Summary: Complete backdrop verification
+Action: Measure the applied copy reduction and finish the remaining WASM gate.
+Done-When: Record full checks, output comparison, and representative performance evidence.
+
+## Pull-Request-Implementation
+
+Branch: `perf/avoid-backdrop-copies`
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Allocate pass-through snapshots on demand and remove the redundant adjustment snapshot.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Independent compose tests: 97 unit and three integration tests passed; Clippy and layering passed.
+- WASM remains incomplete; source review found no blocker.
+- Worktree: `.git/omp-worktrees/issue-009`; paused to prioritize finished PRs.

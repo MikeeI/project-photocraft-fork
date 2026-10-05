@@ -1,9 +1,9 @@
 # ISSUE-001 — compose: per-pixel gradient stop preparation
 
-State: Investigating
+State: Submitted
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
-External-Reference: Not published.
+External-Reference: https://github.com/storytold/photocraft/pull/103
 Contribution-Priority: High
 Root-Cause-Confidence: High
 Finding-Category: Performance
@@ -29,9 +29,11 @@ Review mapping: `P1`, VALID; severity High.
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching record.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved pending measurement and upstream ownership search.
+Coverage: local ledger plus upstream issues, open/closed PRs, and release history searched on 2026-10-05.
+Upstream discussions are disabled; no matching root-cause implementation was found in the searched material.
+Related rendering work: https://github.com/storytold/photocraft/pull/71 and https://github.com/storytold/photocraft/pull/84.
+Neither owns CPU per-pixel gradient-stop preparation.
+Currentness: `upstream/main@7e7864afae8f779afff063a68edf208e30fe592c` leaves `crates/compose` unchanged from the recorded base.
 
 ## Proposed-Change
 
@@ -48,22 +50,87 @@ Keep preparation within the document's CMYK scope and preserve the existing inte
 
 [S] For N painted pixels, nonempty color tables are constructed N times rather than once per preparation scope.
 [S] Nonempty opacity tables incur another N constructions; fill gradients repeat conversion without those allocations.
-Measurement: none; no runtime speedup or observed user harm is claimed.
+[O] Release RGB overlay, 6000×4000, eight Rayon workers, five warm samples: median 362.752 → 235.813 ms.
+[O] Same-size gradient fill: median 129.264 → 117.642 ms.
+[O] Before/after F32-output digests match: overlay `f1e5009d3b711253`; fill `9b8574593cec74df`.
+Commands: `RAYON_NUM_THREADS=8 <binary> gradient-effect 6000 4000 5` and `gradient-fill 6000 4000 5`.
+The temporary `review-perf` example used separate release target directories for the base and contribution.
+These synthetic shared-host measurements do not establish universal UI, tagged-CMYK, or GPU speedups.
 
 ## Verification
 
-- Compare allocation counts, conversion calls, and release preview latency on an identical gradient workload.
-- Compare pixels for RGB, CMYK, Lab, opacity stops, and duplicate stop positions.
-- Existing `gradient_overlay_follows_angle_and_reverse` is partial coverage, not a complete color-contract proof.
+- [O] `cargo test --locked -p photocraft-compose`: 97 unit and three integration tests passed.
+- [O] `cargo clippy --locked -p photocraft-compose --all-targets -- -D warnings`: passed.
+- [O] `cargo xtask layers`: 26 crates, no violations.
+- [O] `cargo xtask wasm`: all 20 checked packages passed; existing unrelated dead-code warnings remain.
+- [O] Formatting and `git diff --check` passed.
+- [S] Independent GPT-6.1 Sol/xhigh review found no blocking defect in stop order, alpha, or CMYK-scope ownership.
+- Runtime parity is limited to the exercised fixtures; other edge contracts were source-reviewed.
 
 ## Publication-Blockers
 
-- Representative baseline and behavior-preserving implementation verification are missing.
-- Upstream prior art and contribution fit remain unresolved.
-- The user authorized publication of a verified fix; the exact PR draft and required evidence are pending.
+None.
+The user explicitly requested immediate publication of completed PRs on 2026-10-05.
 
 ## Next-Action
 
-Summary: Measure gradient preparation
-Action: Capture allocation and conversion counts for a release gradient-overlay preview with nonempty opacity stops.
-Done-When: Record the workload, command, source revision, counts, and latency without claiming an implemented improvement.
+Summary: Await upstream gradient review
+Action: Respond to substantive maintainer feedback on PR #103.
+Done-When: Record the upstream decision or requested follow-up.
+
+## Pull-Request-Implementation
+
+Branch: `perf/prepare-gradient-stops`
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Prepare CPU effect and fill gradient stops outside their pixel loops.
+Commit: `c5036cf9b6a64ff03121f7052792d5a97653f72c`
+Push: `MikeeI/project-photocraft-fork:perf/prepare-gradient-stops`
+Checks:
+- Affected-crate tests, Clippy, layering, WASM, and diff checks passed in the independent worktree.
+
+## Publication-Draft
+
+Target: `storytold/photocraft:main`
+Title: `perf(compose): prepare gradient stops outside pixel loops`
+
+```markdown
+## Summary
+
+CPU gradient effects rebuild color and opacity stop vectors for every painted pixel.
+Gradient fills also repeat stop-color conversion inside the pixel loop.
+This prepares those values once per paint/fill call while retaining the existing interpolation.
+
+Effect and fill semantics remain separate: empty effects use their grayscale ramp, while empty fills stay transparent.
+Preparation is invocation-local rather than a persistent cache, so converted stops are not reused across document color contexts.
+The public sampling API remains available.
+
+## Validation
+
+- `cargo test --locked -p photocraft-compose`: 97 unit tests and 3 integration tests passed.
+- `cargo clippy --locked -p photocraft-compose --all-targets -- -D warnings`: passed.
+- `cargo xtask layers` and `cargo xtask wasm`: passed.
+- Formatting and diff checks passed.
+- Independent source review covered stop ordering, duplicate positions, alpha, and CMYK-scope ownership.
+
+A synthetic 6000×4000 RGB release workload with eight Rayon workers and five warm samples measured:
+
+- Gradient overlay: median 362.752 ms before, 235.813 ms after.
+- Gradient fill: median 129.264 ms before, 117.642 ms after.
+
+Before/after output digests matched for both fixtures.
+These are shared-host synthetic CPU measurements, not a claim of universal UI, tagged-CMYK, or GPU speedup.
+This branch is based on ff53be7; the affected compose sources remain unchanged at upstream 7e7864a.
+
+### Disclosure
+
+Investigated thoroughly with GPT-6.1 Sol (extra high reasoning effort), using [Oh My Pi](https://github.com/can1357/oh-my-pi) as the agent framework.
+I reviewed this contribution with GPT-6.1 Sol at xhigh reasoning effort.
+
+This report is not generic or unreviewed AI-generated output.
+Its claims were checked against the cited evidence, and it includes the relevant detail intended to help maintainers resolve the issue.
+
+If reports like this are not useful to the project, please let me know and I will refrain from submitting similar ones.
+My intent is to help without wasting maintainer time or energy or discouraging their work.
+
+Thank you for your work.
+```

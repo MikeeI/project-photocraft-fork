@@ -1,6 +1,6 @@
 # ISSUE-007 — UI: repeated uncached content bounds
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -51,7 +51,10 @@ Adopt the change only if cold and warm workload measurements show an acceptable 
 
 [S] A direct call allocates and sorts T tile entries and scans boundary or otherwise unenclosed tiles.
 [S] Warm cached bounds still visit T tiles but avoid their repeated pixel scans.
-Measurement: no cold/warm comparison or net UI benefit has been established.
+[O] At 6000×4000 with 21 repeated calls, dense 384-tile RGBA8 bounds cost 4.3803 → 6.3636 ms cold.
+[O] Dense warm medians were 3.1213 → 0.0107 ms; sparse two-tile medians were 0.3238 → 0.0001 ms.
+[O] Default-heavy 384-tile warm medians were 66.2243 → 0.0296 ms; returned bounds matched.
+These function-level measurements do not prove a net UI benefit during changing selections.
 
 ## Verification
 
@@ -66,6 +69,17 @@ Measurement: no cold/warm comparison or net UI benefit has been established.
 
 ## Next-Action
 
-Summary: Compare cold and warm bounds
-Action: Compare direct and existing cached bounds on representative dense and sparse surfaces without changing callers.
-Done-When: Record first-call and repeated-call costs, exact output equality, workload sizes, and the adoption decision.
+Summary: Verify bounds adoption tradeoff
+Action: Compare changing-selection UI workloads and exact bounds after edits against the measured cold penalty.
+Done-When: Record runtime parity and a supported adoption or rejection decision.
+
+## Pull-Request-Implementation
+
+Branch: `perf/reuse-ui-content-bounds`
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Route the two UI bounds consumers through the existing exact cache.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Source review found no correctness blocker; cold regression prevents an unconditional performance claim.
+- Worktree: `.git/omp-worktrees/issue-007`; UI evidence and independent gates remain incomplete.

@@ -1,6 +1,6 @@
 # ISSUE-011 — compose: repeated vector-mask compilation
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -51,7 +51,11 @@ Compute coverage for each requested rectangle using separate local rendering sta
 
 [S] T tiles currently cause T geometry compilations for the same enabled nonempty mask.
 [S] Pixel coverage remains necessary for every output region after compilation reuse.
-Measurement: no speedup is established; simple rectangular paths may offer little benefit.
+[O] Synthetic 6000×4000 RGB fixture with a 1000-point polygon and eight Rayon workers: output digest matched.
+[O] Three warm release samples measured median 444.330 ms before and 493.314 ms after.
+[O] Cold calls were 410.603 → 624.191 ms; digest `8e8bafeb6140d949`.
+Command: `RAYON_NUM_THREADS=8 <binary> vector 6000 4000 3`.
+The shared host was busy; this result establishes no improvement and does not justify publication.
 
 ## Verification
 
@@ -60,11 +64,25 @@ Measurement: no speedup is established; simple rectangular paths may offer littl
 
 ## Publication-Blockers
 
-- Representative geometry-compilation measurements and coverage equivalence are missing.
-- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
+- The measured fixture did not improve; isolate compilation cost and repeat under controlled load before adoption.
+- Geometry retained across the render has no byte/count budget; peak-memory tradeoffs remain unmeasured.
+- No PR draft is approved as ready; the source branch is pushed but intentionally not published.
 
 ## Next-Action
 
-Summary: Measure vector-mask compilation work
-Action: Capture geometry compilation counts and timing for a complex mask rendered across multiple tiles.
-Done-When: Record path complexity, tile count, tolerance, command, compilation counts, and composition latency.
+Summary: Resolve vector performance regression
+Action: Determine whether representative complex masks justify retained geometry and initialization overhead.
+Done-When: Record controlled timing and memory evidence supporting adoption, revision, or rejection.
+
+## Pull-Request-Implementation
+
+Branch: `perf/reuse-vector-mask-geometry`
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Render-owned compiled vector geometry with rectangle-local mutable raster state.
+Commit: `1f24dd6770cba27db290bf0d40177fd09eaf04f0`
+Push: `MikeeI/project-photocraft-fork:perf/reuse-vector-mask-geometry`
+Checks:
+- Compose: 97 unit and three integration tests passed; vector: 23 passed and one ignored.
+- Independent Clippy, layering, and WASM checks passed.
+- GPT-6.1 Sol/xhigh source review found no blocker; it does not establish a performance benefit.
+- Worktree: `.git/omp-worktrees/issue-011`; publication paused on the observed performance result.

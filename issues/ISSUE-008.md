@@ -1,6 +1,6 @@
 # ISSUE-008 — UI: channel-view thumbnail invalidation
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -66,6 +66,17 @@ Measurement: no observed click delay, rebuild count, or speedup is claimed.
 
 ## Next-Action
 
-Summary: Count view-only thumbnail rebuilds
-Action: Trace thumbnail rebuilds during channel target and visibility changes with an unchanged document snapshot.
-Done-When: Record the interaction sequence, snapshot identity, revision transitions, rebuild count, and timing.
+Summary: Verify channel snapshot invalidation
+Action: Observe thumbnail reuse across view changes and invalidation across edits, undo, and same-ID reopening.
+Done-When: Record those outcomes and complete independent UI gates before committing.
+
+## Pull-Request-Implementation
+
+Branch: `perf/retain-channel-thumbnails`
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Key the channel cache by DocId and Weak document snapshot identity.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Independent source review found no blocker; runtime sequence and screenshots remain pending.
+- Worktree: `.git/omp-worktrees/issue-008`; unfinished checks paused to prioritize finished PRs.

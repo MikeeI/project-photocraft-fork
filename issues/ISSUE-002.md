@@ -1,6 +1,6 @@
 # ISSUE-002 — compose: redundant effect application halo
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -49,7 +49,9 @@ Keep the halo exclusively where effect-map neighborhood calculations require it.
 
 [S] A full 256-square render tile processes `(256 + 2m)^2` content pixels for margin m but outputs only `256^2`.
 [S] The enlarged region also sizes effect working buffers after map lookup.
-Measurement: none; pixel-area ratios are not measured latency ratios.
+[O] Synthetic 6000×4000 RGB shadow fixture, eight Rayon workers, five warm samples: 3018.106 → 1621.630 ms.
+[O] Before/after digest: `87052d1c71274d2e`; cold calls were 4563.393 → 3949.545 ms.
+Shared-host timing is not a controlled end-to-end UI benchmark.
 
 ## Verification
 
@@ -65,6 +67,19 @@ Measurement: none; pixel-area ratios are not measured latency ratios.
 
 ## Next-Action
 
-Summary: Measure effect halo work
-Action: Capture processed content area and allocations for a warm-cache tiled effect refresh.
-Done-When: Record the effect parameters, output rectangle, tile size, command, and measured work and latency.
+Summary: Complete halo verification
+Action: Resume unfinished WASM validation and complete the independent PR handoff.
+Done-When: Record complete gates, commit, push, and an evidence-scoped draft.
+
+## Pull-Request-Implementation
+
+Branch: `perf/trim-effect-application-halo`
+Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Scope: Remove application halos while retaining complete neighborhood effect maps.
+Commit: Pending.
+Push: Pending.
+Checks:
+- Independent compose tests: 97 unit and three integration tests passed; Clippy and layering passed.
+- Existing tile-parity test now compares full output at U8/U16/F32 and tile sizes 1/7/33.
+- WASM remains incomplete; independent source review found no blocker.
+- Worktree: `.git/omp-worktrees/issue-002`; further work paused when the user prioritized finished PRs.
