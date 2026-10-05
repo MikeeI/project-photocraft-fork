@@ -1,9 +1,9 @@
 # ISSUE-037 — proxy rendering: artboard rectangles retain full-size coordinates
 
-State: Implementing
+State: Submitted
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
-External-Reference: Not published.
+External-Reference: https://github.com/storytold/photocraft/pull/131
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
 Finding-Category: Correctness
@@ -23,7 +23,7 @@ Trigger: a large document has an artboard positioned toward the right side of it
 [S] The original rectangle can lie entirely outside the smaller proxy and cause its contents to disappear.
 [S] Native thumbnails and interactive filter previews both reach proxy rendering through different callers.
 [O] The existing artboard integration regression failed at proxy pixel `(3,2)` before the fix and passed afterward.
-Actual thumbnail and interactive-preview PNG evidence remains pending.
+[O] Isolated offscreen captures used the same 6000×4000 right-side artboard script at 1440×900.
 
 ## Evidence
 
@@ -57,30 +57,74 @@ It compares every reduced pixel against source coordinates `(4*x,4*y)` for an un
 [O] Full compose verification passed: 97 unit tests and three integration tests.
 [O] Formatting, affected Clippy, dependency layering, and all 20 WebAssembly packages passed.
 [S] Two independent source reviews approved signed ceil scaling of both half-open edges.
-Before/after offscreen UI captures must still demonstrate the thumbnail and interactive filter-preview callers.
+[O] Separate isolated baseline and patched UI builds ran on the GPU with no fallback and `lastRefresh=filter-preview`, 1,500,000 proxy pixels.
+The baseline canvas and Navigator showed transparent checkerboard where the artboard content should be.
+The patched canvas showed the red artboard content and the Navigator showed its reduced thumbnail.
 
 ## Publication-Blockers
 
-- Inspected before/after UI captures and the exact publication draft remain pending.
+None.
 
 ## Next-Action
 
-Summary: Compare proxy artboard clipping
-Action: Render a large right-side artboard through the thumbnail and interactive filter-preview paths.
-Done-When: Record proxy factors, original and reduced bounds, clipping regions, and inspected output images.
+Summary: Await upstream artboard proxy review
+Action: Address review feedback on the submitted proxy geometry fix.
+Done-When: Upstream closes or merges the PR.
 
 ## Pull-Request-Implementation
 
 Branch: fix/scale-proxy-artboards
 Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 Scope: Scale artboard clipping rectangles inside proxy creation for all proxy consumers.
-Commit: Pending.
-Push: Pending.
+Commit: `6851f0b4185f8dfe88b2be0d1bff8323260e9853`
+Push: `origin/fix/scale-proxy-artboards`.
 Checks:
 - Baseline proxy-artboard regression: failed at `(3,2)`.
-- Focused and full compose tests: passed.
-- Formatting, affected Clippy, layering, and WebAssembly: passed.
-- Independent source reviews: approved.
-- Offscreen UI captures: pending.
+- Isolated post-fix pixel comparison, full compose tests, and affected Clippy: passed.
+- Formatting, layering, and all 20 WebAssembly packages: passed.
+- Independent xhigh source reviews: approved.
+- Same-scene isolated offscreen baseline/patched captures: inspected; baseline content was clipped, patched artboard and Navigator rendered.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.
+
+## Publication-Draft
+
+Target: `storytold/photocraft:main`
+Head: `MikeeI:fix/scale-proxy-artboards`
+Title: Scale artboard bounds in proxy documents
+
+### Problem
+
+Proxy creation downsamples raster content and canvas dimensions but leaves artboard clipping rectangles in full-resolution coordinates.
+For a right-side board in a large document, thumbnail and interactive filter-preview proxies can clip away the board contents.
+
+### Change
+
+Scale both half-open artboard edges using signed ceil division, matching proxy pixel sampling even for negative coordinates.
+Apply the correction inside recursive proxy creation so all proxy callers use the same geometry.
+
+### Verification
+
+- The existing artboard regression failed before the fix at proxy pixel `(3,2)`.
+- The post-fix integration test compares every 4× proxy pixel against its source sample.
+- Full compose tests passed: 97 unit tests and three integration tests.
+- Affected Clippy, formatting, dependency layering, and all 20 WebAssembly packages passed.
+- Separate isolated baseline and patched offscreen builds used the same 6000×4000 artboard scene.
+- Both UI captures executed the real GPU filter-preview path with no fallback.
+- The baseline clipped the artboard content; the patched canvas and Navigator rendered the reduced artboard.
+- Two independent source reviews found no blocker.
+
+The UI comparison verifies this synthetic scene; it does not claim performance improvement or broad document-corpus coverage.
+
+### Disclosure
+
+Investigated thoroughly with GPT-6.1 Sol (extra high reasoning effort), using [Oh My Pi](https://github.com/can1357/oh-my-pi) as the agent framework.
+I reviewed this contribution with GPT-6.1 Sol at xhigh reasoning effort.
+
+This report is not generic or unreviewed AI-generated output.
+Its claims were checked against the cited evidence, and it includes the relevant detail intended to help maintainers resolve the issue.
+
+If reports like this are not useful to the project, please let me know and I will refrain from submitting similar ones.
+My intent is to help without wasting maintainer time or energy or discouraging their work.
+
+Thank you for your work.

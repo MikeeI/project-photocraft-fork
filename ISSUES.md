@@ -50,7 +50,7 @@ Next finding ID: ISSUE-039
 | [ISSUE-034](issues/ISSUE-034.md) | PSD export: full channel budget silently drops Quick Mask | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream Quick Mask warning review | https://github.com/storytold/photocraft/pull/115 |
 | [ISSUE-035](issues/ISSUE-035.md) | effect cache: surface identity omits mask default pixels | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream cache review | https://github.com/storytold/photocraft/pull/105 |
 | [ISSUE-036](issues/ISSUE-036.md) | group composition: opacity mixes straight-alpha colors directly | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream group coverage review | https://github.com/storytold/photocraft/pull/108 |
-| [ISSUE-037](issues/ISSUE-037.md) | proxy rendering: artboard rectangles retain full-size coordinates | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Compare proxy artboard clipping | Not published. |
+| [ISSUE-037](issues/ISSUE-037.md) | proxy rendering: artboard rectangles retain full-size coordinates | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream artboard proxy review | https://github.com/storytold/photocraft/pull/131 |
 | [ISSUE-038](issues/ISSUE-038.md) | file picker: read failures collapse into cancellation | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Reproduce silent picker read failure | Not published. |
 
 ## Archived-Findings
