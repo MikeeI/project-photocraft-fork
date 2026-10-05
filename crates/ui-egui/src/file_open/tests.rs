@@ -59,6 +59,17 @@ fn open_file_sets_name_path_and_recent() {
     assert_eq!(app.ui.recent_files, vec!["/pics/cat.psd".to_string()]);
     assert!(!app.ui.status_error);
     assert!(app.ui.notices.is_empty());
+
+    app.session
+        .execute(
+            "file.scripts.scriptEventsManager",
+            json!({"enabled": true, "add": {"event": "openDocument", "steps": [["file.new", {"width": 2, "height": 2}]]}}),
+        )
+        .unwrap();
+    app.open_file("/pics/original.psd", b"x").unwrap();
+    let imported = app.session.documents().iter().find(|state| state.doc.name == "original.psd").unwrap();
+    assert_eq!(imported.path.as_deref(), Some("/pics/original.psd"));
+    assert!(app.session.active().unwrap().path.is_none(), "the script's helper canvas must not inherit the opened path");
 }
 
 #[test]

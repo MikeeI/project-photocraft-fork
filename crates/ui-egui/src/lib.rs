@@ -549,11 +549,15 @@ impl PhotocraftApp {
         if let Some(r) = preset_files_ui::open(self, name, bytes) {
             return r.map(|()| Vec::new());
         }
+        self.open_document_bytes(name, bytes, None)
+    }
+
+    fn open_document_bytes(&mut self, name: &str, bytes: &[u8], path: Option<String>) -> Result<Vec<String>, String> {
         let import = self.services.import.as_ref().ok_or("no importer configured")?;
         let (doc, warnings) = import(name, bytes)?;
         // Edit › Color Settings policies apply on open; mismatches can ask what to do.
-        // No path yet: a bare name isn't a location to save back to (`open_file` sets the path).
-        let (_, color) = self.session.open_document(doc, None);
+        // The imported document owns its path before scripts can switch the active tab.
+        let (_, color) = self.session.open_document(doc, path);
         self.sync_views();
         self.ui.status = format!("Opened {name}");
         self.ui.status_error = false;

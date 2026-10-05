@@ -31,10 +31,7 @@ impl PhotocraftApp {
         if let Some(r) = crate::preset_files_ui::open(self, path, bytes) {
             return r.map(|()| Vec::new());
         }
-        let warnings = self.open_bytes(&display_name(path), bytes)?;
-        if let Some(st) = self.session.active_mut() {
-            st.path = Some(path.to_string());
-        }
+        let warnings = self.open_document_bytes(&display_name(path), bytes, Some(path.to_string()))?;
         self.push_recent(path);
         Ok(warnings)
     }
