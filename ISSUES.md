@@ -27,7 +27,6 @@ Next finding ID: ISSUE-039
 | [ISSUE-011](issues/ISSUE-011.md) | compose: repeated vector-mask compilation | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream vector review | https://github.com/storytold/photocraft/pull/112 |
 | [ISSUE-012](issues/ISSUE-012.md) | UI: orphaned thumbnail texture handles | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream thumbnail-cleanup review | https://github.com/storytold/photocraft/pull/119 |
 | [ISSUE-013](issues/ISSUE-013.md) | GPU canvas: orphaned display LUT resources | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream LUT-lifecycle review | https://github.com/storytold/photocraft/pull/118 |
-| [ISSUE-014](issues/ISSUE-014.md) | file save: destructive overwrite before successful publication | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce failed document overwrite | Not published. |
 | [ISSUE-015](issues/ISSUE-015.md) | recovery: delete snapshots before durable replacement | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce recovery snapshot deletion | Not published. |
 | [ISSUE-016](issues/ISSUE-016.md) | file open: script events retarget the imported save path | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce open-event path retargeting | Not published. |
 | [ISSUE-017](issues/ISSUE-017.md) | autosave: queue acknowledgment suppresses failed-save retries | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce failed autosave suppression | Not published. |
@@ -59,3 +58,4 @@ Next finding ID: ISSUE-039
 | --- | --- | --- | --- | --- | --- | --- |
 | [ISSUE-004](issues/archive/ISSUE-004.md) | compose: repeated effect metadata derivation | Pull-Request-Implementation | New-pull-request | Medium | Not-Worth-Pursuing | Not published. |
 | [ISSUE-010](issues/archive/ISSUE-010.md) | compose: unused proxy source-column copies | Pull-Request-Implementation | New-pull-request | Medium | Not-Worth-Pursuing | Not published. |
+| [ISSUE-014](issues/archive/ISSUE-014.md) | file save: destructive overwrite before successful publication | Pull-Request-Implementation | New-pull-request | High | Fixed-Elsewhere | https://github.com/storytold/photocraft/pull/230 |
