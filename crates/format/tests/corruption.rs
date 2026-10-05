@@ -124,12 +124,13 @@ fn total_size_limit() {
 #[test]
 fn directory_bundle_tampered_tile() {
     let doc = rich_doc(ColorMode::Rgb, SampleType::U8);
-    let dir = temp_dir("tamper");
+    let temp_root = temp_dir("tamper");
+    let dir = temp_root.join("bundle");
     PcraftWriter::new().save_dir(&doc, &dir, &SaveOptions::default()).unwrap();
     let tile = std::fs::read_dir(dir.join("tiles")).unwrap().next().unwrap().unwrap().path();
     std::fs::write(&tile, b"garbage").unwrap();
     assert!(load_path(&dir).is_err());
-    std::fs::remove_dir_all(dir).unwrap();
+    std::fs::remove_dir_all(temp_root).unwrap();
 }
 
 #[test]

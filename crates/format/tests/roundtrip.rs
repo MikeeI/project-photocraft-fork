@@ -38,11 +38,12 @@ fn directory_bundle_roundtrip_all_modes() {
     for mode in MODES {
         for depth in SampleType::ALL {
             let doc = rich_doc(mode, depth);
-            let dir = temp_dir("dir");
+            let temp_root = temp_dir("dir");
+            let dir = temp_root.join("bundle");
             PcraftWriter::new().save_dir(&doc, &dir, &SaveOptions::default()).unwrap();
             assert!(dir.join("manifest.json").is_file());
             assert_eq!(load_path(&dir).unwrap(), doc, "{mode:?} {depth:?}");
-            std::fs::remove_dir_all(dir).unwrap();
+            std::fs::remove_dir_all(temp_root).unwrap();
         }
     }
 }
@@ -86,7 +87,8 @@ fn zip_incremental_only_new_tiles() {
 #[test]
 fn directory_incremental_and_gc() {
     let mut doc = rich_doc(ColorMode::Rgb, SampleType::U8);
-    let dir = temp_dir("gc");
+    let temp_root = temp_dir("gc");
+    let dir = temp_root.join("bundle");
     let mut w = PcraftWriter::new();
     let s1 = w.save_dir(&doc, &dir, &SaveOptions::default()).unwrap();
     assert_eq!(s1.tiles_written, s1.tiles_total);
@@ -102,7 +104,25 @@ fn directory_incremental_and_gc() {
     assert_eq!(load_path(&dir).unwrap(), doc);
     let files = std::fs::read_dir(dir.join("tiles")).unwrap().count();
     assert_eq!(files, s3.tiles_total);
-    std::fs::remove_dir_all(dir).unwrap();
+    let full = rich_doc(ColorMode::Rgb, SampleType::U8);
+    let barrier = std::sync::Barrier::new(3);
+    let (full_result, reduced_result) = std::thread::scope(|scope| {
+        let full_worker = scope.spawn(|| {
+            barrier.wait();
+            PcraftWriter::new().save_dir(&full, &dir, &SaveOptions::default())
+        });
+        let reduced_worker = scope.spawn(|| {
+            barrier.wait();
+            PcraftWriter::new().save_dir(&doc, &dir, &SaveOptions::default())
+        });
+        barrier.wait();
+        (full_worker.join().unwrap(), reduced_worker.join().unwrap())
+    });
+    assert!(full_result.is_ok(), "{full_result:?}");
+    assert!(reduced_result.is_ok(), "{reduced_result:?}");
+    let final_doc = load_path(&dir).unwrap();
+    assert!(final_doc == full || final_doc == doc, "concurrent publication left an invalid bundle");
+    std::fs::remove_dir_all(temp_root).unwrap();
 }
 
 #[test]

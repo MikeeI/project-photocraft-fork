@@ -1,6 +1,7 @@
 //! Object storage (ZIP or directory), incremental writer and loader.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fs::OpenOptions;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
@@ -17,6 +18,7 @@ use crate::{FormatError, LoadOptions, Result, SaveOptions};
 pub(crate) const MANIFEST: &str = "manifest.json";
 pub(crate) const THUMB: &str = "thumb.png";
 pub(crate) const COMPOSITE: &str = "composite/preview.png";
+const DIRECTORY_BUNDLE_LOCK: &str = ".photocraft-bundle-write.lock";
 
 fn tile_path(h: &str) -> String {
     format!("tiles/{h}.zst")
@@ -383,6 +385,13 @@ impl PcraftWriter {
     pub fn save_dir(&mut self, doc: &Document, dir: &Path, opts: &SaveOptions) -> Result<SaveStats> {
         let p = self.prepare(doc, opts)?;
         let mut stats = p.stats;
+        std::fs::create_dir_all(dir)?;
+        let canonical_dir = std::fs::canonicalize(dir)?;
+        let lock_dir = canonical_dir.parent().unwrap_or(&canonical_dir);
+        // One parent lock survives bundle deletion and bounds lock files per autosave directory,
+        // at the cost of serializing sibling bundles.
+        let lock_file = OpenOptions::new().read(true).write(true).create(true).truncate(false).open(lock_dir.join(DIRECTORY_BUNDLE_LOCK))?;
+        lock_file.lock()?;
         for sub in ["tiles", "blobs", "composite"] {
             std::fs::create_dir_all(dir.join(sub))?;
         }
