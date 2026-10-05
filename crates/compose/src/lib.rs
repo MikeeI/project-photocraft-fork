@@ -84,15 +84,12 @@ pub fn render(doc: &Document, rect: Rect) -> Buffer {
 
 /// [`render`] with an explicit tile size (tests check tile independence).
 pub fn render_tiled(doc: &Document, rect: Rect, tile: i32) -> Buffer {
+    let cx = Ctx::for_doc(doc);
+    render_tiled_with(doc, rect, tile, &cx)
+}
+
+fn render_tiled_with(doc: &Document, rect: Rect, tile: i32, cx: &Ctx) -> Buffer {
     let tile = tile.max(1);
-    let cx = Ctx {
-        canvas: doc.bounds(),
-        transfer: adjust::Transfer::for_mode(doc.mode),
-        light: doc.global_light,
-        patterns: &doc.patterns,
-        mode: doc.mode,
-        depth: doc.depth,
-    };
     // Lab documents mix Normal blending in CIELAB, as Photoshop does (psblend::LAB_MIX).
     let lab = doc.mode == photocraft_color::ColorMode::Lab;
     // CMYK layers are read through the document's own CMYK profile (thread-local scope).
@@ -105,7 +102,7 @@ pub fn render_tiled(doc: &Document, rect: Rect, tile: i32) -> Buffer {
         return photocraft_color::convert::with_cmyk_space(cmyk, || {
             let mut buf = multichannel::backdrop(doc, rect);
             psblend::LAB_MIX.with(|l| l.set(lab));
-            composite_stack(&doc.layers, &mut buf, &cx);
+            composite_stack(&doc.layers, &mut buf, cx);
             psblend::LAB_MIX.with(|l| l.set(false));
             buf
         });
@@ -114,7 +111,7 @@ pub fn render_tiled(doc: &Document, rect: Rect, tile: i32) -> Buffer {
         photocraft_color::convert::with_cmyk_space(cmyk, || {
             let mut b = multichannel::backdrop(doc, t);
             psblend::LAB_MIX.with(|l| l.set(lab));
-            composite_stack(&doc.layers, &mut b, &cx);
+            composite_stack(&doc.layers, &mut b, cx);
             psblend::LAB_MIX.with(|l| l.set(false));
             b
         })
@@ -196,11 +193,12 @@ pub fn render_bands<E>(doc: &Document, rect: Rect, band_rows: i32, mut sink: imp
     if rect.is_empty() {
         return Ok(());
     }
+    let cx = Ctx::for_doc(doc);
     let rows = band_rows_for(rect.width(), band_rows);
     let mut y = rect.y0;
     while y < rect.y1 {
         let y1 = y.saturating_add(rows).min(rect.y1);
-        sink(render(doc, Rect::new(rect.x0, y, rect.x1, y1)))?;
+        sink(render_tiled_with(doc, Rect::new(rect.x0, y, rect.x1, y1), RENDER_TILE, &cx))?;
         y = y1;
     }
     Ok(())
@@ -255,6 +253,7 @@ pub fn render_layer(layer: &Layer, rect: Rect) -> Buffer {
             patterns: &[],
             mode: photocraft_color::ColorMode::Rgb,
             depth: photocraft_color::SampleType::F32,
+            fx_metadata: RenderFxMetadata::default(),
         },
     );
     buf
@@ -388,7 +387,38 @@ fn render_reduced_in_bands(doc: &Document, w: u32, h: u32, damage: Option<Rect>,
     Buffer { rect: out, px: acc }
 }
 
-/// Composite a sibling list (bottom→top) onto `backdrop`.
+const EFFECT_CULL_CANVAS: Rect = Rect::new(i32::MIN / 4, i32::MIN / 4, i32::MAX / 4, i32::MAX / 4);
+
+#[derive(Clone, Copy)]
+struct FxMetadata {
+    margin: i32,
+    region: Rect,
+    frame: Rect,
+}
+
+#[derive(Default)]
+struct LayerFxMetadata {
+    margin: std::sync::OnceLock<i32>,
+    cull: std::sync::OnceLock<Option<Rect>>,
+    document: std::sync::OnceLock<FxMetadata>,
+    key: std::sync::OnceLock<u64>,
+}
+
+#[derive(Default)]
+struct RenderFxMetadata {
+    layers: std::sync::Mutex<std::collections::HashMap<usize, std::sync::Arc<LayerFxMetadata>>>,
+}
+
+impl RenderFxMetadata {
+    fn layer(&self, layer: &Layer) -> std::sync::Arc<LayerFxMetadata> {
+        // Addresses identify immutable layer instances only for this render's lifetime;
+        // LayerId is not sufficient for isolated layers or duplicated IDs.
+        let key = std::ptr::from_ref(layer) as usize;
+        let mut layers = self.layers.lock().unwrap_or_else(|e| e.into_inner());
+        layers.entry(key).or_default().clone()
+    }
+}
+
 /// Rendering context shared down the tree.
 struct Ctx<'a> {
     /// Document canvas: fill layers and gradients are laid out relative to it, never to the render rect.
@@ -402,8 +432,47 @@ struct Ctx<'a> {
     /// The document's colour mode (channel restrictions name its channels).
     mode: photocraft_color::ColorMode,
     depth: photocraft_color::SampleType,
+    fx_metadata: RenderFxMetadata,
 }
 
+impl<'a> Ctx<'a> {
+    fn for_doc(doc: &'a Document) -> Self {
+        Self {
+            canvas: doc.bounds(),
+            transfer: adjust::Transfer::for_mode(doc.mode),
+            light: doc.global_light,
+            patterns: &doc.patterns,
+            mode: doc.mode,
+            depth: doc.depth,
+            fx_metadata: RenderFxMetadata::default(),
+        }
+    }
+
+    fn effect_metadata(&self, layer: &Layer) -> FxMetadata {
+        let slot = self.fx_metadata.layer(layer);
+        // Metadata initialization must not render or enter Rayon: another tile may
+        // wait for this slot while the initializing thread runs nested render work.
+        *slot.document.get_or_init(|| {
+            let margin = *slot.margin.get_or_init(|| effects::margin(layer));
+            let bounds = layer_bounds(layer, self.canvas);
+            FxMetadata { margin, region: bounds.inflate(margin).intersect(&self.canvas.inflate(margin)), frame: paint_bounds(layer).unwrap_or(bounds) }
+        })
+    }
+
+    fn effect_key(&self, layer: &Layer, region: Rect) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let slot = self.fx_metadata.layer(layer);
+        *slot.key.get_or_init(|| {
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            layer_identity(layer, &mut h);
+            (region.x0, region.y0, region.x1, region.y1).hash(&mut h);
+            (self.light.angle.to_bits(), self.light.altitude.to_bits()).hash(&mut h);
+            h.finish()
+        })
+    }
+}
+
+/// Composite a sibling list (bottom→top) onto `backdrop`.
 fn composite_stack(layers: &[Layer], backdrop: &mut Buffer, cx: &Ctx) {
     let mut i = 0;
     while i < layers.len() {
@@ -538,14 +607,7 @@ fn render_content(layer: &Layer, rect: Rect, cx: &Ctx) -> Option<Buffer> {
 /// The alpha of `layer`'s own content over `rect` (masks applied, row-major): the shape its
 /// effect maps are built from (for the GPU compositor). Zero for adjustment layers.
 pub fn layer_shape(doc: &Document, layer: &Layer, rect: Rect) -> Vec<f32> {
-    let cx = Ctx {
-        canvas: doc.bounds(),
-        transfer: adjust::Transfer::for_mode(doc.mode),
-        light: doc.global_light,
-        patterns: &doc.patterns,
-        mode: doc.mode,
-        depth: doc.depth,
-    };
+    let cx = Ctx::for_doc(doc);
     render_content(layer, rect, &cx).map(|b| b.px.iter().map(|p| p[3]).collect()).unwrap_or_else(|| vec![0.0; rect.width() as usize * rect.height() as usize])
 }
 
@@ -643,12 +705,17 @@ fn sample_stops(stops: &[(f32, photocraft_color::Color)], t: f32) -> [f32; 4] {
 /// no allocated tiles there, a transparent default, and no effects (which
 /// could reach in from outside). Clipped layers depend on the base, so they
 /// vanish with it.
-fn empty_in(layer: &Layer, rect: Rect) -> bool {
+fn empty_in(layer: &Layer, rect: Rect, cx: &Ctx) -> bool {
     if effects::has_effects(layer) {
         // Effects reach at most `margin` beyond the layer's pixels (when it is transparent
         // outside them): render tiles away from a small text layer skip it entirely.
-        let canvas = Rect::new(i32::MIN / 4, i32::MIN / 4, i32::MAX / 4, i32::MAX / 4);
-        return transparent_outside(layer) && layer_bounds(layer, canvas).inflate(effects::margin(layer)).intersect(&rect).is_empty();
+        let slot = cx.fx_metadata.layer(layer);
+        // Culling uses its original artificial canvas, not the document canvas used
+        // for effect regions; groups containing fills depend on this distinction.
+        let bounds = slot.cull.get_or_init(|| {
+            transparent_outside(layer).then(|| layer_bounds(layer, EFFECT_CULL_CANVAS).inflate(*slot.margin.get_or_init(|| effects::margin(layer))))
+        });
+        return bounds.is_some_and(|b| b.intersect(&rect).is_empty());
     }
     match &layer.content {
         LayerContent::Raster(_) | LayerContent::Text(_) | LayerContent::Shape(_) | LayerContent::Smart(_) => match layer.surface() {
@@ -823,7 +890,7 @@ fn composite_artboard(layer: &Layer, ab: &photocraft_doc::Artboard, clipped: &[L
 
 fn composite_layer_plain(layer: &Layer, clipped: &[Layer], backdrop: &mut Buffer, cx: &Ctx) {
     let rect = backdrop.rect;
-    if empty_in(layer, rect) {
+    if empty_in(layer, rect, cx) {
         return;
     }
     let opacity = layer.opacity * layer.fill_opacity;
@@ -903,13 +970,14 @@ fn composite_layer_plain(layer: &Layer, clipped: &[Layer], backdrop: &mut Buffer
 
     if effects::has_effects(layer) {
         // Effects reach beyond the render rect: render the layer larger.
-        let big = rect.inflate(effects::margin(layer));
+        let metadata = cx.effect_metadata(layer);
+        let big = rect.inflate(metadata.margin);
         let Some(mut content) = render_content(layer, big, cx) else { return };
         for c in clipped.iter().filter(|c| c.visible) {
             composite_atop(c, &mut content, cx);
         }
         let maps = effect_maps(layer, cx);
-        effects::composite_with_effects(layer, &content, backdrop, &maps, paint_bounds(layer).unwrap_or_else(|| layer_bounds(layer, cx.canvas)), cx.patterns);
+        effects::composite_with_effects(layer, &content, backdrop, &maps, metadata.frame, cx.patterns);
         return;
     }
     if let Some((mut content, stroke)) = shape_parts(layer, clipped, rect, cx) {
@@ -1048,18 +1116,12 @@ fn fx_cache() -> &'static std::sync::Mutex<FxCache> {
 /// The layer's effect maps over its whole region (layer bounds grown by the effect reach, within
 /// the canvas grown likewise), built once per layer state and shared by every tile.
 fn effect_maps(layer: &Layer, cx: &Ctx) -> std::sync::Arc<effects::FxMaps> {
-    use std::hash::{Hash, Hasher};
-    let m = effects::margin(layer);
-    let region = layer_bounds(layer, cx.canvas).inflate(m).intersect(&cx.canvas.inflate(m));
+    let region = cx.effect_metadata(layer).region;
     if std::env::var_os("PHOTOCRAFT_FX_NOCACHE").is_some() {
         let shape = render_content(layer, region, cx).map(|b| b.px.iter().map(|p| p[3]).collect()).unwrap_or_default();
         return std::sync::Arc::new(effects::build_maps(layer, shape, region, &cx.light, &texture_ctx(layer, region, cx)));
     }
-    let mut h = std::collections::hash_map::DefaultHasher::new();
-    layer_identity(layer, &mut h);
-    (region.x0, region.y0, region.x1, region.y1).hash(&mut h);
-    (cx.light.angle.to_bits(), cx.light.altitude.to_bits()).hash(&mut h);
-    let key = h.finish();
+    let key = cx.effect_key(layer, region);
     let slot = {
         let mut c = fx_cache().lock().unwrap_or_else(|e| e.into_inner());
         if let Some(s) = c.map.get(&key) {
@@ -1103,7 +1165,7 @@ fn effect_maps(layer: &Layer, cx: &Ctx) -> std::sync::Arc<effects::FxMaps> {
 }
 
 fn texture_ctx<'a>(layer: &Layer, region: Rect, cx: &Ctx<'a>) -> effects::TextureCtx<'a> {
-    let sb = paint_bounds(layer).unwrap_or_else(|| layer_bounds(layer, cx.canvas));
+    let sb = cx.effect_metadata(layer).frame;
     effects::TextureCtx { rect: region, patterns: cx.patterns, anchor: layer.effects.reference.unwrap_or((f64::from(sb.x0), f64::from(sb.y0))) }
 }
 
@@ -1143,18 +1205,12 @@ fn composite_atop_any(layer: &Layer, base: &mut Buffer, cx: &Ctx) {
     if effects::has_effects(layer) {
         // Effects of a clipped layer are clipped to the base too: render
         // them over the base (treated as opaque) and keep the base's alpha.
-        let big = rect.inflate(effects::margin(layer));
+        let metadata = cx.effect_metadata(layer);
+        let big = rect.inflate(metadata.margin);
         let Some(content) = render_content(layer, big, cx) else { return };
         let mut opaque = Buffer { rect, px: base.px.iter().map(|p| [p[0], p[1], p[2], 1.0]).collect() };
         let maps = effect_maps(layer, cx);
-        effects::composite_with_effects(
-            layer,
-            &content,
-            &mut opaque,
-            &maps,
-            paint_bounds(layer).unwrap_or_else(|| layer_bounds(layer, cx.canvas)),
-            cx.patterns,
-        );
+        effects::composite_with_effects(layer, &content, &mut opaque, &maps, metadata.frame, cx.patterns);
         for (p, o) in base.px.iter_mut().zip(&opaque.px) {
             if p[3] > 0.0 {
                 *p = [o[0], o[1], o[2], p[3]];
