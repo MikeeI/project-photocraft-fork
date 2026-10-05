@@ -13,6 +13,8 @@ use std::sync::Arc;
 use photocraft_color::{ColorMode, PixelFormat, SampleType, read_sample, write_sample};
 use photocraft_geom::{Rect, TILE_SIZE, TileCoord};
 
+const MAX_DOWNSAMPLE_FACTOR: u32 = 1 << 20;
+
 /// Pixel storage for one tile: `TILE_SIZE² × bytes_per_pixel`, row-major, interleaved channels.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tile {
@@ -462,6 +464,64 @@ impl Surface {
                     }
                 }
             }
+        }
+        out
+    }
+
+    /// Nearest-neighbour downsample in document coordinates, preserving encoded pixel bytes.
+    /// Factors zero and one clone the surface; larger factors are capped at 2^20.
+    pub fn downsample_encoded(&self, k: u32) -> Surface {
+        if k <= 1 {
+            return self.clone();
+        }
+        // Keep defaults encoded too: even missing pixels must preserve F32 NaN payloads.
+        let mut out = Surface { format: self.format, default_pixel: self.default_pixel.clone(), tiles: BTreeMap::new() };
+        let b = self.content_bounds();
+        if b.is_empty() {
+            return out;
+        }
+        // Retain the proxy's factor cap while widening sampling arithmetic at tile edges.
+        let k = k.min(MAX_DOWNSAMPLE_FACTOR) as i32;
+        let bpp = self.format.bytes_per_pixel();
+        let (x0, x1) = (b.x0.div_euclid(k), b.x1.div_euclid(k) + i32::from(b.x1.rem_euclid(k) != 0));
+        let (y0, y1) = (b.y0.div_euclid(k), b.y1.div_euclid(k) + i32::from(b.y1.rem_euclid(k) != 0));
+        let w = (i64::from(x1) - i64::from(x0)).max(0) as usize;
+        let mut row = vec![0u8; w * bpp];
+        let step = i64::from(k);
+        let ts = i64::from(TILE_SIZE);
+        for oy in y0..y1 {
+            // Widen before multiplying or rounding tile edges; a rounded edge may exceed i32.
+            let sy = i64::from(oy) * step;
+            let ty = sy.div_euclid(ts) as i32;
+            let ly = sy.rem_euclid(ts) as usize;
+            let mut sx = i64::from(x0) * step;
+            let mut pixels = row.chunks_exact_mut(bpp);
+            while pixels.len() != 0 {
+                let tx = sx.div_euclid(ts) as i32;
+                let lx = sx.rem_euclid(ts) as usize;
+                // Only visit tiles containing sampled columns, looking each one up once per run.
+                let count = ((ts - lx as i64 + step - 1) / step) as usize;
+                let count = count.min(pixels.len());
+                match self.tiles.get(&TileCoord { tx, ty }) {
+                    Some(t) => {
+                        // Euclidean local coordinates are below TILE_SIZE; this entire run stays
+                        // within one fixed-length tile row, so no per-pixel coordinate conversion is needed.
+                        let base = (ly * TILE_SIZE as usize + lx) * bpp;
+                        let end = (ly + 1) * TILE_SIZE as usize * bpp;
+                        let source = t.data[base..end].chunks_exact(bpp).step_by(k as usize);
+                        for (px, src) in pixels.by_ref().take(count).zip(source) {
+                            px.copy_from_slice(src);
+                        }
+                    }
+                    None => {
+                        for px in pixels.by_ref().take(count) {
+                            px.copy_from_slice(&self.default_pixel);
+                        }
+                    }
+                }
+                sx += count as i64 * step;
+            }
+            out.write_interleaved(Rect::new(x0, oy, x1, oy + 1), &row);
         }
         out
     }

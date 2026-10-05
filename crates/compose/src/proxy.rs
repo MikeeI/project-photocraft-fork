@@ -5,31 +5,11 @@
 //! document would cost seconds and gigabytes.
 
 use photocraft_doc::{Document, Layer, LayerContent, Size};
-use photocraft_geom::Rect;
 use photocraft_raster::Surface;
 
 /// Nearest-neighbour downsample of a surface by integer factor `k` (document coordinates / k).
 pub fn downsample(s: &Surface, k: u32) -> Surface {
-    let mut out = Surface::with_default(s.format(), &s.default_pixel());
-    let b = s.content_bounds();
-    if b.is_empty() || k <= 1 {
-        return if k <= 1 { s.clone() } else { out };
-    }
-    // Surfaces span at most ±2^30 px; larger factors reduce everything to one pixel anyway.
-    let k = k.min(1 << 20) as i32;
-    let bpp = s.format().bytes_per_pixel();
-    let (x0, x1) = (b.x0.div_euclid(k), b.x1.div_euclid(k) + i32::from(b.x1.rem_euclid(k) != 0));
-    let (y0, y1) = (b.y0.div_euclid(k), b.y1.div_euclid(k) + i32::from(b.y1.rem_euclid(k) != 0));
-    let w = (x1 - x0).max(0) as usize;
-    let mut row = vec![0u8; w * bpp];
-    for oy in y0..y1 {
-        let src = s.to_interleaved(Rect::new(x0 * k, oy * k, x1 * k, oy * k + 1));
-        for (i, px) in row.chunks_exact_mut(bpp).enumerate() {
-            px.copy_from_slice(&src[i * k as usize * bpp..(i * k as usize + 1) * bpp]);
-        }
-        out.write_interleaved(Rect::new(x0, oy, x1, oy + 1), &row);
-    }
-    out
+    s.downsample_encoded(k)
 }
 
 fn shrink_layer(l: &mut Layer, k: u32) {
@@ -81,6 +61,7 @@ pub fn proxy_faithful(doc: &Document) -> bool {
 mod tests {
     use super::*;
     use photocraft_color::{Color, ColorMode, PixelFormat, SampleType};
+    use photocraft_geom::Rect;
 
     #[test]
     fn downsample_picks_every_kth_pixel() {
@@ -91,6 +72,25 @@ mod tests {
         assert_eq!(d.pixel(0, 0), vec![1.0, 0.0, 0.0, 1.0]);
         assert_eq!(d.pixel(1, 1), vec![0.0, 0.0, 1.0, 1.0]);
         assert_eq!(d.pixel(2, 2)[3], 0.0);
+
+        // Encoded sampling preserves NaN payloads and signed zero, including sparse defaults.
+        let fmt = PixelFormat::RGBA32F;
+        let default = [f32::from_bits(0x7f80_0001), -0.0, f32::INFINITY, 1.0];
+        let mut s = Surface::with_default(fmt, &default);
+        let encoded: Vec<u8> = [0x7fc1_2345u32, 0x7f80_0002, 0x8000_0000, 0x3f80_0000].into_iter().flat_map(u32::to_ne_bytes).collect();
+        for (x, y) in [(-301, -259), (301, 259)] {
+            s.write_interleaved(Rect::new(x, y, x + 1, y + 1), &encoded);
+        }
+        let d = downsample(&s, 7);
+        let r = Rect::new(-43, -37, 44, 38);
+        let mut expected = Vec::new();
+        for y in r.y0..r.y1 {
+            for x in r.x0..r.x1 {
+                expected.extend(s.to_interleaved(Rect::new(x * 7, y * 7, x * 7 + 1, y * 7 + 1)));
+            }
+        }
+        assert_eq!(d.to_interleaved(r), expected);
+        assert_eq!(d.to_interleaved(Rect::new(1000, 1000, 1001, 1001)), s.to_interleaved(Rect::new(1000, 1000, 1001, 1001)));
     }
 
     #[test]
