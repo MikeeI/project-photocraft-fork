@@ -1,6 +1,6 @@
 # ISSUE-037 — proxy rendering: artboard rectangles retain full-size coordinates
 
-State: Submitted
+State: Archived
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: https://github.com/storytold/photocraft/pull/131
@@ -8,7 +8,7 @@ Contribution-Priority: Medium
 Root-Cause-Confidence: High
 Finding-Category: Correctness
 Created: 2026-10-05
-Updated: 2026-10-05
+Updated: 2026-10-06
 Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 
 ## Root-Cause
@@ -35,9 +35,9 @@ Trigger: a large document has an artboard positioned toward the right side of it
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; `ISSUE-010` was read for duplicate comparison.
+Coverage: original 102-record inventory, current PR #131 thread/diff, and main source checked on 2026-10-06.
+PR #131 by @MikeeI merged on 2026-10-05; it scales artboard bounds during recursive proxy creation.
 `ISSUE-010` concerns source-row copy volume, not unscaled clipping geometry.
-Upstream inventory covered all 102 issue/PR records, relevant discussions, and public releases; no exact duplicate was found.
 GitHub Discussions are disabled; project Discord history was inaccessible.
 
 ## Proposed-Change
@@ -60,6 +60,7 @@ It compares every reduced pixel against source coordinates `(4*x,4*y)` for an un
 [O] Separate isolated baseline and patched UI builds ran on the GPU with no fallback and `lastRefresh=filter-preview`, 1,500,000 proxy pixels.
 The baseline canvas and Navigator showed transparent checkerboard where the artboard content should be.
 The patched canvas showed the red artboard content and the Navigator showed its reduced thumbnail.
+[S] Current `upstream/main@47f4abfed49e0d2f5b9277287b27dee632530ba4` scales artboard rectangle edges in `shrink_layer` before recursing through group children (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/compose/src/proxy.rs).
 
 ## Publication-Blockers
 
@@ -67,9 +68,9 @@ None.
 
 ## Next-Action
 
-Summary: Await upstream artboard proxy review
-Action: Address review feedback on the submitted proxy geometry fix.
-Done-When: Upstream closes or merges the PR.
+Summary: —
+Action: None.
+Done-When: None.
 
 ## Pull-Request-Implementation
 
@@ -128,3 +129,10 @@ If reports like this are not useful to the project, please let me know and I wil
 My intent is to help without wasting maintainer time or energy or discouraging their work.
 
 Thank you for your work.
+
+## Archive
+
+Archive-Reason: Merged
+Detail: None.
+Evidence: https://github.com/storytold/photocraft/pull/131
+Checked: 2026-10-06

@@ -36,14 +36,12 @@ Next finding ID: ISSUE-039
 | [ISSUE-024](issues/ISSUE-024.md) | indexed color: RGB reconstruction loses original palette indices | Investigating | Pull-Request-Implementation | New-pull-request | High | Reproduce palette identity loss | Not published. |
 | [ISSUE-025](issues/ISSUE-025.md) | smart objects: explicit discard still commits child edits | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Reproduce ignored smart-child discard | Not published. |
 | [ISSUE-026](issues/ISSUE-026.md) | canvas geometry: surface traversal omits smart-filter masks | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Reproduce smart-filter mask misalignment | Not published. |
-| [ISSUE-027](issues/ISSUE-027.md) | history: unchanged bit depth clears redo | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream bit-depth history review | https://github.com/storytold/photocraft/pull/133 |
 | [ISSUE-028](issues/ISSUE-028.md) | image rotation: lock bypass omits nested layers | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Compare nested locked rotation | Not published. |
 | [ISSUE-029](issues/ISSUE-029.md) | native loading: fresh layer IDs leave stale variable targets | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Reproduce remapped variable targeting | Not published. |
 | [ISSUE-031](issues/ISSUE-031.md) | PSD import: white-unmatting clips supported HDR samples | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream HDR import review | https://github.com/storytold/photocraft/pull/106 |
 | [ISSUE-033](issues/ISSUE-033.md) | flat export: omitted channels lack document-level loss warnings | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Inspect flat channel-loss warnings | Not published. |
 | [ISSUE-035](issues/ISSUE-035.md) | effect cache: surface identity omits mask default pixels | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream cache review | https://github.com/storytold/photocraft/pull/105 |
 | [ISSUE-036](issues/ISSUE-036.md) | group composition: opacity mixes straight-alpha colors directly | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream group coverage review | https://github.com/storytold/photocraft/pull/108 |
-| [ISSUE-037](issues/ISSUE-037.md) | proxy rendering: artboard rectangles retain full-size coordinates | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream artboard proxy review | https://github.com/storytold/photocraft/pull/131 |
 | [ISSUE-038](issues/ISSUE-038.md) | file picker: read failures collapse into cancellation | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Reproduce silent picker read failure | Not published. |
 
 ## Archived-Findings
@@ -56,6 +54,8 @@ Next finding ID: ISSUE-039
 | [ISSUE-018](issues/archive/ISSUE-018.md) | session: colliding persisted document IDs share autosave ownership | Pull-Request-Implementation | New-pull-request | High | Merged | https://github.com/storytold/photocraft/pull/114 |
 | [ISSUE-022](issues/archive/ISSUE-022.md) | PSD import: redundant-mask cleanup deletes the selected real mask | Pull-Request-Implementation | New-pull-request | High | Merged | https://github.com/storytold/photocraft/pull/130 |
 | [ISSUE-023](issues/archive/ISSUE-023.md) | flat export: native shortcut bypasses active compositing properties | Pull-Request-Implementation | New-pull-request | High | Merged | https://github.com/storytold/photocraft/pull/122 |
+| [ISSUE-027](issues/archive/ISSUE-027.md) | history: unchanged bit depth clears redo | Pull-Request-Implementation | New-pull-request | Medium | Merged | https://github.com/storytold/photocraft/pull/133 |
 | [ISSUE-030](issues/archive/ISSUE-030.md) | native import: reordered ZIP entries defeat format detection | Pull-Request-Implementation | New-pull-request | Medium | Merged | https://github.com/storytold/photocraft/pull/137 |
 | [ISSUE-032](issues/archive/ISSUE-032.md) | PSD export: eight-bit opacity detection drops U16 alpha | Pull-Request-Implementation | New-pull-request | Low | Merged | https://github.com/storytold/photocraft/pull/111 |
 | [ISSUE-034](issues/archive/ISSUE-034.md) | PSD export: full channel budget silently drops Quick Mask | Pull-Request-Implementation | New-pull-request | Medium | Merged | https://github.com/storytold/photocraft/pull/115 |
+| [ISSUE-037](issues/archive/ISSUE-037.md) | proxy rendering: artboard rectangles retain full-size coordinates | Pull-Request-Implementation | New-pull-request | Medium | Merged | https://github.com/storytold/photocraft/pull/131 |

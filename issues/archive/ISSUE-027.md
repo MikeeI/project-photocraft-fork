@@ -1,6 +1,6 @@
 # ISSUE-027 — history: unchanged bit depth clears redo
 
-State: Submitted
+State: Archived
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: https://github.com/storytold/photocraft/pull/133
@@ -8,7 +8,7 @@ Contribution-Priority: Medium
 Root-Cause-Confidence: High
 Finding-Category: Correctness
 Created: 2026-10-05
-Updated: 2026-10-05
+Updated: 2026-10-06
 Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
 
 ## Root-Cause
@@ -36,9 +36,9 @@ Trigger: undo an edit, then execute the command for the depth that is already ac
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching root cause.
-Upstream issue and pull-request searches for `"bit depth" redo` and `history unchanged depth` returned no results.
-Gaps: discussions, releases, and a broader no-op-history policy were not established.
+Coverage: original targeted history searches, current PR #133 thread/diff, and main source checked on 2026-10-06.
+PR #133 by @MikeeI merged on 2026-10-05; it preserves redo only for this unchanged-depth command.
+The broader no-op-history policy remains unestablished.
 Contribution fit: the fix claims only unchanged-depth history preservation.
 
 ## Proposed-Change
@@ -61,6 +61,7 @@ Status: reproduced before the fix and verified after it.
 - Engine Clippy, formatting, dependency layering, and all 20 WebAssembly package checks passed.
 - WebAssembly emitted existing `photocraft-cms` dead-code warnings for `PAR_MIN_PIXELS` and `PAR_CHUNK_PIXELS`.
 - Independent xhigh review approved the patch and found no source blocker.
+[S] Current `upstream/main@47f4abfed49e0d2f5b9277287b27dee632530ba4` returns from `convert_depth` before opening `Session::edit` when depth is unchanged (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/engine/src/image_cmds.rs).
 
 Test decision: update — existing `image_cmds::tests::mode_and_depth_conversions` covers this no-op redo contract.
 
@@ -70,9 +71,9 @@ None known.
 
 ## Next-Action
 
-Summary: Await upstream bit-depth history review
-Action: Address upstream feedback on the no-op bit-depth history fix.
-Done-When: Upstream closes or merges the PR.
+Summary: —
+Action: None.
+Done-When: None.
 
 ## Pull-Request-Implementation
 
@@ -123,3 +124,10 @@ My intent is to help without wasting maintainer time or energy or discouraging t
 Thank you for your work.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.
+
+## Archive
+
+Archive-Reason: Merged
+Detail: None.
+Evidence: https://github.com/storytold/photocraft/pull/133
+Checked: 2026-10-06
