@@ -86,6 +86,15 @@ fn render(profile: &str, rgb: [f32; 3], reopen: bool) -> Option<([u8; 3], [u8; 3
         harness.state_mut().ui.dialogs.clear();
         let after_reopen = sample(&mut harness);
         assert!((0..3).all(|i| gpu[i].abs_diff(after_reopen[i]) <= 1), "GPU native reopen changed display color: {gpu:?} -> {after_reopen:?}");
+        let (request, _) = photocraft_ui_egui::control::ControlRequest::new("ui.menu.invoke", json!({"id":"image.adjustments.brightnessContrast"}));
+        photocraft_ui_egui::control::handle(harness.state_mut(), &ctx, &request);
+        photocraft_ui_egui::adjust_preview::display_doc(harness.state_mut(), 0).expect("adjustment preview");
+        harness.state_mut().run("file.close", json!({})).expect("close adjustment owner");
+        assert!(photocraft_ui_egui::adjust_preview::shown_key(harness.state()).is_none(), "close drops adjustment preview state before same-ID reopen");
+        harness.state_mut().session.add_document(photocraft_format::load_from_bytes(&bytes).expect("reopen adjustment owner"), None);
+        harness.state_mut().sync_views();
+        photocraft_ui_egui::adjust_preview::display_doc(harness.state_mut(), 0).expect("rebuilt adjustment preview");
+        harness.state_mut().ui.dialogs.clear();
     }
     harness.state_mut().ui.view.flip_horizontal = true;
     let cpu = sample(&mut harness);
