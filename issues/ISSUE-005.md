@@ -1,8 +1,8 @@
 # ISSUE-005 — UI: offscreen layer thumbnail work
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -61,7 +61,7 @@ Measurement: no frame-time improvement or workload frequency has been observed.
 ## Publication-Blockers
 
 - Representative frame measurements and actual UI verification are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
 
 ## Next-Action
 

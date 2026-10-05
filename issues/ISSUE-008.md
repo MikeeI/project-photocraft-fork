@@ -1,8 +1,8 @@
 # ISSUE-008 — UI: channel-view thumbnail invalidation
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -62,7 +62,7 @@ Measurement: no observed click delay, rebuild count, or speedup is claimed.
 ## Publication-Blockers
 
 - Representative rebuild counts, timing, and snapshot-invalidation verification are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
 
 ## Next-Action
 

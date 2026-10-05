@@ -1,8 +1,8 @@
 # ISSUE-013 — GPU canvas: orphaned display LUT resources
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -67,7 +67,7 @@ Measurement: no runtime growth rate, actual VRAM footprint, exhaustion, or corre
 ## Publication-Blockers
 
 - Runtime retention evidence and same-ID reopening verification are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
 
 ## Next-Action
 

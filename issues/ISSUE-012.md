@@ -1,8 +1,8 @@
 # ISSUE-012 — UI: orphaned thumbnail texture handles
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -61,7 +61,7 @@ Measurement: actual GPU allocation, release timing, and session growth rate are 
 ## Publication-Blockers
 
 - Runtime resource-lifecycle confirmation and restoration verification are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
 
 ## Next-Action
 

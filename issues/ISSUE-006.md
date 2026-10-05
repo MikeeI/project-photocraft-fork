@@ -1,8 +1,8 @@
 # ISSUE-006 — UI: redundant active-layer clone
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -58,7 +58,7 @@ Measurement: allocation count, frame latency, and user-visible impact have not b
 ## Publication-Blockers
 
 - Representative clone-cost evidence and actual UI verification are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
 
 ## Next-Action
 

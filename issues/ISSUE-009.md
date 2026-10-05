@@ -1,8 +1,8 @@
 # ISSUE-009 — compose: unnecessary backdrop snapshots
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -59,7 +59,7 @@ Measurement: no allocator, bandwidth, or end-to-end timing comparison has run.
 ## Publication-Blockers
 
 - Representative copy counts, timing, and output-equivalence evidence are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
 
 ## Next-Action
 

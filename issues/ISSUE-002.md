@@ -1,8 +1,8 @@
 # ISSUE-002 — compose: redundant effect application halo
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -61,7 +61,7 @@ Measurement: none; pixel-area ratios are not measured latency ratios.
 
 - Numerical before/after equivalence and representative timing evidence are missing.
 - Existing tile tests alone do not cover every affected effect combination.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
 
 ## Next-Action
 

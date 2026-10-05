@@ -1,8 +1,8 @@
 # ISSUE-007 — UI: repeated uncached content bounds
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -62,7 +62,7 @@ Measurement: no cold/warm comparison or net UI benefit has been established.
 ## Publication-Blockers
 
 - Cold/warm timing, allocation evidence, and net-benefit acceptance are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
 
 ## Next-Action
 

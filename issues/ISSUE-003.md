@@ -1,8 +1,8 @@
 # ISSUE-003 — compose: repeated full-pattern conversion
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -61,7 +61,7 @@ Measurement: none; no peak-heap reduction or latency gain is established.
 ## Publication-Blockers
 
 - Representative conversion counts, peak heap, budget selection, and output equivalence are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
 
 ## Next-Action
 

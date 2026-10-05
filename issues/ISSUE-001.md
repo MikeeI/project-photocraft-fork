@@ -1,8 +1,8 @@
 # ISSUE-001 — compose: per-pixel gradient stop preparation
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: High
 Root-Cause-Confidence: High
@@ -59,8 +59,8 @@ Measurement: none; no runtime speedup or observed user harm is claimed.
 ## Publication-Blockers
 
 - Representative baseline and behavior-preserving implementation verification are missing.
-- Upstream prior art, contribution fit, authorized work, and publication target remain unresolved.
-- No exact external draft or publication approval exists.
+- Upstream prior art and contribution fit remain unresolved.
+- The user authorized publication of a verified fix; the exact PR draft and required evidence are pending.
 
 ## Next-Action
 

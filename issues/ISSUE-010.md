@@ -1,8 +1,8 @@
 # ISSUE-010 — compose: unused proxy source-column copies
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -59,7 +59,7 @@ Measurement: those counts do not establish proportional memory-bus traffic or la
 ## Publication-Blockers
 
 - Representative byte counts, timing, and encoded-output equivalence are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
 
 ## Next-Action
 

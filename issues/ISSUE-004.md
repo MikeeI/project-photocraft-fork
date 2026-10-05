@@ -1,8 +1,8 @@
 # ISSUE-004 — compose: repeated effect metadata derivation
 
 State: Investigating
-Authorized-Work: Not-Selected
-Publication-Target: Not-Selected
+Authorized-Work: Pull-Request-Implementation
+Publication-Target: New-pull-request
 External-Reference: Not published.
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
@@ -61,7 +61,7 @@ Measurement: none; no thread-scaling or end-to-end speedup is established.
 ## Publication-Blockers
 
 - Measured metadata cost and context-preserving output verification are missing.
-- Upstream prior art, authorized work, target, exact draft, and publication approval remain unresolved.
+- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
 
 ## Next-Action
 
