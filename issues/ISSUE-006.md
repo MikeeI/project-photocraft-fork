@@ -1,9 +1,9 @@
 # ISSUE-006 — UI: redundant active-layer clone
 
-State: Implementing
+State: Submitted
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
-External-Reference: Not published.
+External-Reference: https://github.com/storytold/photocraft/pull/121
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
 Finding-Category: Performance
@@ -30,9 +30,9 @@ Review mapping: `P6`, CHANGED; severity reduced from High to Medium because actu
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching record.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: potentially small borrowing correction; measurements and upstream ownership search remain open.
+Coverage: upstream issues, open/closed PRs, releases, and local ledger searched on 2026-10-05.
+PR #71's panel change routes navigator image drawing through its proxy helper; it does not address active-layer metadata cloning.
+The changed panel source remains unchanged at `upstream/main@7e7864afae8f779afff063a68edf208e30fe592c`.
 
 ## Proposed-Change
 
@@ -47,33 +47,71 @@ Keep the owning Arc alive and preserve the existing action execution order.
 
 ## Performance-Evidence
 
-[S] Clone cost scales with active-layer metadata and recursively with an active group's subtree and tile maps.
-Measurement: allocation count, frame latency, and user-visible impact have not been measured.
+[S] The read-only panel previously cloned the active layer, including tile-map or recursive group metadata; pixel buffers remain COW-shared.
+[S] The change removes that `Layer::clone` while retaining the owning document `Arc` and deferring actions until reads finish.
+[O] The active-group UI screenshot showed the same group and controls after the change.
+No controlled frame-latency or allocation-count improvement is claimed.
 
 ## Verification
 
-- Compare per-frame allocations and timing for a large active raster layer and a nested active group.
-- Visually verify blend, opacity, fill, and lock controls after the borrowing change.
+- `cargo test --locked -p photocraft-ui-egui` passed; active-group controls were inspected in the offscreen screenshot.
+- Frame latency and allocation counts were not measured under controlled conditions.
 
 ## Publication-Blockers
 
-- Representative clone-cost evidence and actual UI verification are missing.
-- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
+None.
+The draft states the clone removed and explicitly disclaims an unmeasured latency effect.
 
 ## Next-Action
 
-Summary: Complete borrowing UI verification
-Action: Verify active-group controls and finish the independent UI gates.
-Done-When: Record representative interaction evidence and complete checks before committing.
+Summary: Await upstream layer-borrow review
+Action: Respond to substantive maintainer feedback on PR #121.
+Done-When: Record the upstream decision or requested follow-up.
 
 ## Pull-Request-Implementation
 
 Branch: `perf/borrow-active-layer`
-Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Base: `upstream/main@7e7864afae8f779afff063a68edf208e30fe592c`
 Scope: Borrow the active layer from the existing local document Arc.
-Commit: Pending.
-Push: Pending.
+Commit: `28cbb514c86cbfaed9925d319260495c23f72706`
+Push: `MikeeI/project-photocraft-fork:perf/borrow-active-layer`
 Checks:
-- Independent source review found no blocker.
-- Earlier shared-target checks are not accepted as branch-specific evidence.
-- Worktree: `.git/omp-worktrees/issue-006`; independent gates remain incomplete after publication reprioritization.
+- `cargo test --locked -p photocraft-ui-egui`: 227 unit and 11 integration tests passed.
+- UI crate Clippy with `--all-targets -- -D warnings`, `cargo xtask layers`, and all 20 WASM checks passed.
+- Before/after screenshots were rendered and inspected; the active-group view is unchanged.
+- Independent GPT-6.1 Sol/xhigh source review found no blocker.
+- Changed panel source is unchanged at upstream `7e7864a`.
+
+## Publication-Draft
+
+Target: `storytold/photocraft:main`
+Title: `perf(ui): borrow the active layer from its document snapshot`
+
+```markdown
+## Summary
+
+Borrow the active layer from the local document `Arc` instead of cloning it for the Layers panel's read-only controls.
+The owning document snapshot remains alive through the read phase, and collected actions still run afterward.
+This removes a `Layer::clone` of surface tile-map or recursive group metadata; copy-on-write pixel buffers were not deep-copied before this change.
+
+## Validation
+
+- `cargo test --locked -p photocraft-ui-egui`: 227 unit and 11 integration tests passed.
+- UI crate Clippy with `--all-targets -- -D warnings`, `cargo xtask layers`, and `cargo xtask wasm` passed.
+- No controlled frame-latency or allocation-count result is claimed.
+- Before: ![Active group before](https://raw.githubusercontent.com/MikeeI/project-photocraft-fork/personal/project/evidence/issue-006-before.png)
+- After: ![Active group after](https://raw.githubusercontent.com/MikeeI/project-photocraft-fork/personal/project/evidence/issue-006-after.png)
+
+### Disclosure
+
+Investigated thoroughly with GPT-6.1 Sol (extra high reasoning effort), using [Oh My Pi](https://github.com/can1357/oh-my-pi) as the agent framework.
+I reviewed this contribution with GPT-6.1 Sol at xhigh reasoning effort.
+
+This report is not generic or unreviewed AI-generated output.
+Its claims were checked against the cited evidence, and it includes the relevant detail intended to help maintainers resolve the issue.
+
+If reports like this are not useful to the project, please let me know and I will refrain from submitting similar ones.
+My intent is to help without wasting maintainer time or energy or discouraging their work.
+
+Thank you for your work.
+```

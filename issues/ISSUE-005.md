@@ -1,9 +1,9 @@
 # ISSUE-005 — UI: offscreen layer thumbnail work
 
-State: Implementing
+State: Submitted
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
-External-Reference: Not published.
+External-Reference: https://github.com/storytold/photocraft/pull/117
 Contribution-Priority: High
 Root-Cause-Confidence: High
 Finding-Category: Performance
@@ -31,9 +31,9 @@ Measurement: frame-time impact on long layer stacks has not been measured.
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching record.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: potentially bounded UI correction; measurements and upstream ownership search remain open.
+Coverage: upstream issues, open/closed PRs, releases, and local ledger searched on 2026-10-05.
+PR #71 changes navigator proxy texture ownership, not offscreen Layers-row thumbnail generation.
+No matching offscreen-row correction was found; changed panel/canvas sources remain unchanged at `upstream/main@7e7864afae8f779afff063a68edf208e30fe592c`.
 
 ## Proposed-Change
 
@@ -49,33 +49,71 @@ Retain row layout and interactions even when its thumbnail is offscreen.
 
 ## Performance-Evidence
 
-[S] Offscreen cache hits traverse all tiles of the relevant surfaces and masks.
-[S] Cache misses additionally perform up to 64-square thumbnail sampling and texture creation or update.
-Measurement: no frame-time improvement or workload frequency has been observed.
+[S] Offscreen cache hits traverse surface tiles; misses also sample thumbnails and create or update textures.
+[O] In an 800×600 UI fixture with 300 hidden raster layers and masks, the full surface reported 670 textures before and 81 after.
+[O] Frame medians were 46.978 ms before and 49.951 ms after under unrelated compiler load; these do not establish faster frames.
+The observed improvement is reduced offscreen thumbnail resources/work, not an end-to-end latency claim.
 
 ## Verification
 
-- Compare thumbnail requests, tile visits, and UI frame time on an identical long layer stack.
-- Visually inspect scrolling changed layers into view, mask targeting, rename, and drag-and-drop.
+- In the 300-hidden-layer fixture, texture count fell from 670 to 81; the full row remains in the UI and only thumbnail image work is gated.
+- Before/after screenshots show the same visible layer-panel layout.
 
 ## Publication-Blockers
 
-- Representative frame measurements and actual UI verification are missing.
-- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
+None.
+The draft makes no latency claim and reports the offscreen texture-count reduction.
 
 ## Next-Action
 
-Summary: Complete offscreen UI verification
-Action: Verify clipped-thumbnail rendering and skipped work, then complete branch-specific quality gates.
-Done-When: Record inspected screenshots, behavioral evidence, and complete checks before committing.
+Summary: Await upstream thumbnail-culling review
+Action: Respond to substantive maintainer feedback on PR #117.
+Done-When: Record the upstream decision or requested follow-up.
 
 ## Pull-Request-Implementation
 
 Branch: `perf/skip-offscreen-thumbnails`
-Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Base: `upstream/main@7e7864afae8f779afff063a68edf208e30fe592c`
 Scope: Gate only offscreen thumbnail image work, preserving row interactions and outside decorations.
-Commit: Pending.
-Push: Pending.
+Commit: `6b0581879b911cbc7e0d3bf44d7eb958fe3ca661`
+Push: `MikeeI/project-photocraft-fork:perf/skip-offscreen-thumbnails`
 Checks:
-- Independent source review found no blocker; complete runtime and visual validation remain pending.
-- Worktree: `.git/omp-worktrees/issue-005`; unfinished checks paused to prioritize finished PRs.
+- `cargo test --locked -p photocraft-ui-egui`: 227 unit and 11 integration tests passed.
+- `cargo clippy --locked -p photocraft-ui-egui --all-targets -- -D warnings`, `cargo xtask layers`, and all 20 WASM checks passed.
+- Before/after UI screenshots were rendered and inspected; they preserve the same visible layer-panel layout.
+- Independent GPT-6.1 Sol/xhigh source review found no blocker.
+- Changed panel/canvas sources are unchanged at upstream `7e7864a`.
+
+## Publication-Draft
+
+Target: `storytold/photocraft:main`
+Title: `perf(ui): skip offscreen layer thumbnail generation`
+
+```markdown
+## Summary
+
+Gate layer and mask thumbnail generation and drawing on whether each thumbnail rectangle is visible.
+Rows retain their layout, interactions, decorations, and mask targeting while scrolled offscreen.
+
+## Validation
+
+- `cargo test --locked -p photocraft-ui-egui`: 227 unit and 11 integration tests passed.
+- UI crate Clippy with `--all-targets -- -D warnings`, `cargo xtask layers`, and `cargo xtask wasm` passed.
+- In an 800×600 fixture with 300 hidden raster layers and masks, texture count was 670 before and 81 after.
+- Frame medians were 46.978 ms before and 49.951 ms after under unrelated compiler load; no frame-speedup claim is made.
+- Before: ![Offscreen layer list before](https://raw.githubusercontent.com/MikeeI/project-photocraft-fork/personal/project/evidence/issue-005-before.png)
+- After: ![Offscreen layer list after](https://raw.githubusercontent.com/MikeeI/project-photocraft-fork/personal/project/evidence/issue-005-after.png)
+
+### Disclosure
+
+Investigated thoroughly with GPT-6.1 Sol (extra high reasoning effort), using [Oh My Pi](https://github.com/can1357/oh-my-pi) as the agent framework.
+I reviewed this contribution with GPT-6.1 Sol at xhigh reasoning effort.
+
+This report is not generic or unreviewed AI-generated output.
+Its claims were checked against the cited evidence, and it includes the relevant detail intended to help maintainers resolve the issue.
+
+If reports like this are not useful to the project, please let me know and I will refrain from submitting similar ones.
+My intent is to help without wasting maintainer time or energy or discouraging their work.
+
+Thank you for your work.
+```

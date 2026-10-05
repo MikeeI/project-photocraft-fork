@@ -1,9 +1,9 @@
 # ISSUE-013 — GPU canvas: orphaned display LUT resources
 
-State: Implementing
+State: Submitted
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
-External-Reference: Not published.
+External-Reference: https://github.com/storytold/photocraft/pull/118
 Contribution-Priority: Medium
 Root-Cause-Confidence: High
 Finding-Category: Performance
@@ -35,9 +35,9 @@ That last risk concerns the proposed change, not an observed current color-rende
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; distinct from thumbnail-handle ownership in `ISSUE-012`.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved until cleanup and same-ID reopening are verified together.
+Coverage: upstream issues, open/closed PRs, releases, and local ledger searched on 2026-10-05.
+Upstream GPU preview/HDR work is preserved; no matching LUT/signature pruning correction was found.
+The rebased implementation also clears the introduced closed-document filter-preview upload marker and the new adjustment-preview owner.
 
 ## Proposed-Change
 
@@ -54,9 +54,9 @@ Keep valid document and preview keys live.
 
 ## Performance-Evidence
 
-[S] Each retained 33-cubed RGBA8 LUT represents 143,748 nominal texel bytes plus GPU and binding overhead.
-[S] The existing map has no closed-document pruning path; only explicit same-key `None` removes a LUT.
-Measurement: no runtime growth rate, actual VRAM footprint, exhaustion, or corrected speedup is established.
+[S] A 33-cubed RGBA8 LUT represents 143,748 nominal texel bytes plus GPU and binding overhead; actual residency was not measured.
+[S] Renderer LUTs and UI-side identity signatures are removed together, independently of orphan canvas textures.
+Measurement: resource-count and VRAM deltas are unavailable; no speedup or exhaustion threshold is claimed.
 
 ## Verification
 
@@ -66,26 +66,63 @@ Measurement: no runtime growth rate, actual VRAM footprint, exhaustion, or corre
 
 ## Publication-Blockers
 
-- Runtime retention evidence and same-ID reopening verification are missing.
-- Upstream prior art and the exact PR draft remain pending; publication is authorized conditional on verification.
+None.
+The tested same-ID preview lifecycle and source-reviewed LUT pruning are documented without VRAM or speedup claims.
 
 ## Next-Action
 
-Summary: Complete LUT lifecycle verification
-Action: Finish resource-retention and visual evidence, then complete the remaining independent UI gates.
-Done-When: Record lifecycle results, screenshots, and complete checks before committing.
+Summary: Await upstream LUT-lifecycle review
+Action: Respond to substantive maintainer feedback on PR #118.
+Done-When: Record the upstream decision or requested follow-up.
 
 ## Pull-Request-Implementation
 
 Branch: `fix/prune-display-lut-state`
-Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Base: `upstream/main@7e7864afae8f779afff063a68edf208e30fe592c`
 Scope: Co-own LUT signatures with renderer resources and prune both at document synchronization.
-Commit: Pending.
-Push: Pending.
+Commit: `94ce4c08a7a25ccc4ecf0b9413743035d75aa706`
+Push: `MikeeI/project-photocraft-fork:fix/prune-display-lut-state`
 Checks:
-- Review exposed an introduced stale filter-preview upload marker on same-ID reopening.
-- [O] Extended `display_p3_is_converted_on_gpu_and_cpu_canvases` failed at the same-ID preview assertion before marker cleanup.
-- [O] Clearing closed-document preview markers at the same boundary made that exact test pass.
-- [O] Observed GPU RGB `[216, 124, 64]`, CPU `[217, 123, 65]`; the test's existing tolerances passed.
-- Independent review accepted the final cleanup; the remaining crate gates and screenshots are incomplete.
-- Worktree: `.git/omp-worktrees/issue-013`; unfinished checks paused to prioritize finished PRs.
+- `cargo test --locked -p photocraft-ui-egui`: 227 unit and 11 integration tests passed.
+- UI crate Clippy with `--all-targets -- -D warnings`, `cargo xtask layers`, and all 20 WASM checks passed.
+- The existing `display_p3_is_converted_on_gpu_and_cpu_canvases` test verifies same-ID native reopen, filter-preview resource recreation, and adjustment-preview owner clearing/rebuild.
+- Observed display samples: GPU `[216, 124, 64]`, CPU `[217, 123, 65]`; existing tolerances passed.
+- The final UI branch was rebased onto upstream `7e7864a`; GPT-6.1 Sol/xhigh reviewed the rebased delta and found no introduced blocker.
+- Formatting, diff checks, and the branch test update were complete before final validation.
+
+## Publication-Draft
+
+Target: `storytold/photocraft:main`
+Title: `fix(ui): prune closed-document display and preview resources`
+
+```markdown
+## Summary
+
+Prune closed-document display LUTs together with their cached identity signatures, even when no orphan canvas texture triggers cleanup.
+Clear closed-document filter and adjustment preview owners before collecting live GPU keys; same-ID reopen must rebuild rather than trust stale upload metadata.
+Retain upstream's HDR preview and `gpu_canvas_lut` paths, and preserve resources for documents and previews that remain live.
+
+## Validation
+
+- `cargo test --locked -p photocraft-ui-egui`: 227 unit and 11 integration tests passed.
+- UI crate Clippy with `--all-targets -- -D warnings`, `cargo xtask layers`, and `cargo xtask wasm` passed.
+- The existing Display P3 integration test closed and reopened the same native document ID, verified preview texture release/reupload, and confirmed adjustment-preview state clears and rebuilds.
+- GPU sample `[216, 124, 64]` and CPU sample `[217, 123, 65]` passed the existing color tolerances after reopen.
+- Before: ![Display P3 canvas before](https://raw.githubusercontent.com/MikeeI/project-photocraft-fork/personal/project/evidence/issue-013-before.png)
+- After: ![Display P3 canvas after](https://raw.githubusercontent.com/MikeeI/project-photocraft-fork/personal/project/evidence/issue-013-after.png)
+
+No direct GPU-residency measurement or speedup claim is made.
+
+### Disclosure
+
+Investigated thoroughly with GPT-6.1 Sol (extra high reasoning effort), using [Oh My Pi](https://github.com/can1357/oh-my-pi) as the agent framework.
+I reviewed this contribution with GPT-6.1 Sol at xhigh reasoning effort.
+
+This report is not generic or unreviewed AI-generated output.
+Its claims were checked against the cited evidence, and it includes the relevant detail intended to help maintainers resolve the issue.
+
+If reports like this are not useful to the project, please let me know and I will refrain from submitting similar ones.
+My intent is to help without wasting maintainer time or energy or discouraging their work.
+
+Thank you for your work.
+```
