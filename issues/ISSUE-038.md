@@ -9,7 +9,7 @@ Root-Cause-Confidence: High
 Finding-Category: UI
 Created: 2026-10-05
 Updated: 2026-10-06
-Source: `upstream/main@eaf92dcd9df738117991502de1dd16137dbcd3b2`
+Source: `upstream/main@7ee4bb28583e78c67c42a892335e1dedf43ef94a`
 
 ## Root-Cause
 
@@ -78,13 +78,14 @@ Downstream `Services` providers face a source-level API change; persistence and 
 
 Status: behavior and UI surface verified on 2026-10-06.
 
-- Rebased onto current `upstream/main@eaf92dcd9df738117991502de1dd16137dbcd3b2`.
-  The eight touched paths had no intervening changes.
+- Rebased onto current `upstream/main@7ee4bb28583e78c67c42a892335e1dedf43ef94a`.
+  No intervening commits touched its eight changed paths.
 - Cancellation remains silent; a removed selected path produces a path-qualified error, status error, and notice.
 - Inspected `project/evidence/issue-038-before.png` and `project/evidence/issue-038-after.png`.
   The after image shows the read-error notice with unchanged layout.
 - No real native OS picker was driven; the regression used a selected path removed before reading.
-- Default strict Clippy hit unchanged dependency warnings: `PAR_MIN_PIXELS`, `PAR_CHUNK_PIXELS`, and `OPENABLE`.
+- Package-only strict Clippy (`--no-deps -D warnings`) passed for app, UI, and wasm web.
+  Cargo emitted existing dead-code warnings in unchanged `photocraft-cms` and `photocraft-engine` dependencies.
 
 ## Publication-Blockers
 
@@ -102,10 +103,10 @@ Done-When: Record verified model/effort identity and actionable review; otherwis
 ## Pull-Request-Implementation
 
 Branch: fix/report-picker-read-errors
-Base: `upstream/main@eaf92dcd9df738117991502de1dd16137dbcd3b2`
+Base: `upstream/main@7ee4bb28583e78c67c42a892335e1dedf43ef94a`
 Scope: Distinguish native picker read failures from cancellation and propagate them to visible error reporting.
-Commit: `69cdfbbccaaf7a70de759d6d422897013904ec4d`
-Push: `origin/fix/report-picker-read-errors` (explicit `--force-with-lease` update)
+Commit: `fa4255a377a108010f847009973b52cbe02d76c0`
+Push: `origin/fix/report-picker-read-errors` at `fa4255a377a108010f847009973b52cbe02d76c0` (explicit `--force-with-lease`)
 Checks:
 - `cargo test --quiet --locked -p photocraft` → 36 passed.
 - `cargo test --quiet --locked -p photocraft-ui-egui` → 477 passed; 3 ignored.
