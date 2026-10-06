@@ -969,7 +969,7 @@ mod tests {
         assert!(((b / a) / expect).ln().abs() < 0.3, "{} vs {expect}", b / a);
         assert!(r["stops"].as_f64().unwrap() > 7.0, "{r}");
         let out = r["document"].as_u64().unwrap() as usize;
-        s.close(out);
+        assert!(s.close(out).unwrap().is_some());
         // 8-bit tone-mapped output with explicit EVs.
         for method in ["localAdaptation", "exposureGamma", "highlightCompression", "equalizeHistogram"] {
             let r = s
@@ -979,7 +979,7 @@ mod tests {
             let d = &s.active().unwrap().doc;
             assert_eq!(d.depth, SampleType::U8);
             let out = r["document"].as_u64().unwrap() as usize;
-            s.close(out);
+            assert!(s.close(out).unwrap().is_some());
         }
         assert!(s.execute("file.automate.mergeToHdrPro", json!({"useOpenDocuments": true, "exposures": [0, 1]})).is_err());
     }

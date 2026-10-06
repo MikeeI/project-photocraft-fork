@@ -1252,7 +1252,7 @@ fn split(s: &mut Session, p: &Value) -> Result<Value> {
         docs.push(gray_document(&format!("{}_{}", doc.name, ch.name), &doc, &read_plane(&ch.surface, area)));
     }
     if p.get("closeOriginal").and_then(Value::as_bool).unwrap_or(true) {
-        s.close(idx);
+        s.close(idx)?.ok_or(EngineError::NoDocument)?;
     }
     let made: Vec<usize> = docs.into_iter().map(|d| s.add_document(d, None)).collect();
     Ok(json!({ "documents": made }))
@@ -1324,7 +1324,7 @@ fn merge(s: &mut Session, p: &Value) -> Result<Value> {
     let mut close: Vec<usize> = srcs.clone();
     close.sort_unstable();
     for i in close.into_iter().rev() {
-        s.close(i);
+        s.close(i)?.ok_or(EngineError::NoDocument)?;
     }
     let i = s.add_document(out, None);
     Ok(json!({ "document": i }))

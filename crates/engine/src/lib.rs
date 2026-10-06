@@ -310,14 +310,14 @@ impl Session {
         i
     }
 
-    pub fn close(&mut self, index: usize) -> Option<DocState> {
+    pub fn close(&mut self, index: usize) -> Result<Option<DocState>> {
         if index >= self.docs.len() {
-            return None;
+            return Ok(None);
         }
-        smart_cmds::on_close(self, index);
+        smart_cmds::on_close(self, index)?;
         let d = self.docs.remove(index);
         self.active = if self.docs.is_empty() { None } else { Some(index.min(self.docs.len() - 1)) };
-        Some(d)
+        Ok(Some(d))
     }
 
     /// Run a command by id with JSON params. Returns a JSON result.

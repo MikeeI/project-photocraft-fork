@@ -655,13 +655,14 @@ pub fn commit_child(s: &mut Session, index: usize) -> Result<bool> {
 }
 
 /// Called before a document closes: an edited Edit Contents document updates its parent.
-pub(crate) fn on_close(s: &mut Session, index: usize) {
-    let Some(st) = s.docs.get(index) else { return };
+pub(crate) fn on_close(s: &mut Session, index: usize) -> Result<()> {
+    let Some(st) = s.docs.get(index) else { return Ok(()) };
     let id = st.doc.id;
-    if st.is_dirty() && s.smart_links.iter().any(|l| l.child == id) {
-        let _ = commit_child(s, index);
+    if st.is_dirty() && s.smart_links.iter().any(|l| l.child == id) && !commit_child(s, index)? {
+        return Err(other("the smart object contents link is no longer available"));
     }
     s.smart_links.retain(|l| l.child != id && l.parent != id);
+    Ok(())
 }
 
 fn is_smart_child(s: &Session) -> std::result::Result<(), String> {

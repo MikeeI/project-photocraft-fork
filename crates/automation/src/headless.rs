@@ -160,7 +160,7 @@ impl Headless {
 
     pub fn close(&mut self, index: Option<usize>) -> Result<Value, AutomationError> {
         let i = self.doc_index(index)?;
-        if let Some(d) = self.session.close(i) {
+        if let Some(d) = self.session.close(i)? {
             self.writers.remove(&d.doc.id.0);
         }
         Ok(self.session_list())

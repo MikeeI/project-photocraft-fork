@@ -305,6 +305,36 @@ fn edit_contents_updates_the_parent() {
 }
 
 #[test]
+fn failed_smart_child_close_preserves_document_and_link() {
+    let mut s = session(8);
+    paint(&mut s);
+    let parent_layer = convert(&mut s);
+    let child = s.execute("layer.smartObjects.editContents", json!({})).unwrap()["document"].as_u64().unwrap() as usize;
+    s.edit("child edit", |doc, _| {
+        doc.layers[0].surface_mut().unwrap().fill_rect(Rect::new(0, 0, 4, 4), &[1.0, 0.0, 0.0, 1.0]);
+        Ok(())
+    })
+    .unwrap();
+    let child_pixels = flat(&s);
+    let child_id = s.documents()[child].doc.id;
+    s.set_active(0);
+    s.execute("layer.delete", json!({"layer": parent_layer})).unwrap();
+    s.set_active(child);
+    let parent_revision = s.documents()[0].revision;
+
+    assert!(s.execute("file.close", json!({})).is_err());
+    assert_eq!(s.documents().len(), 2);
+    assert_eq!(s.documents()[child].doc.id, child_id);
+    assert!(s.documents()[child].is_dirty());
+    assert_eq!(flat(&s), child_pixels);
+    assert_eq!(s.documents()[0].revision, parent_revision);
+    assert!(s.smart_links.iter().any(|link| link.child == child_id));
+    assert!(s.execute("file.closeAll", json!({})).is_err());
+    assert_eq!(s.documents().len(), 2);
+    assert!(s.smart_links.iter().any(|link| link.child == child_id));
+}
+
+#[test]
 fn rasterize_and_via_copy() {
     let mut s = session(8);
     paint(&mut s);

@@ -172,3 +172,31 @@ fn engine_commands_open_their_dialogs() {
     crate::menus::invoke_unguarded(&mut app, &ctx, "file.closeAll", json!({})).unwrap();
     assert!(app.ui.views.is_empty() && app.session.documents().is_empty());
 }
+
+#[test]
+fn failed_close_others_resynchronizes_views_after_partial_close() {
+    let (mut app, ctx) = app_with(1);
+    app.run("layer.new.layer", json!({})).unwrap();
+    app.run("paint.stroke", json!({"points": [[5, 5, 1], [20, 20, 1]], "size": 8, "color": "#ff0000"})).unwrap();
+    let parent_layer = app.run("layer.smartObjects.convertToSmartObject", json!({})).unwrap()["layer"].as_u64().unwrap();
+    let child = app.run("layer.smartObjects.editContents", json!({})).unwrap()["document"].as_u64().unwrap() as usize;
+    let child_id = app.session.documents()[child].doc.id;
+    app.session.set_active(0);
+    app.run("layer.delete", json!({"layer": parent_layer})).unwrap();
+    app.session.set_active(child);
+    app.run("paint.stroke", json!({"points": [[4, 4, 1], [22, 22, 1]], "size": 5, "color": "#00ff00"})).unwrap();
+    app.run("file.new", json!({"width": 8, "height": 8})).unwrap();
+    app.ui.views[0].zoom = 2.0;
+    app.ui.views[1].zoom = 3.0;
+    app.ui.views[2].zoom = 4.0;
+
+    let error = crate::menus::invoke_unguarded(&mut app, &ctx, "file.closeOthers", json!({"document": 0})).unwrap_err();
+    assert!(error.contains("no such layer"));
+    assert_eq!(app.session.documents().len(), 2);
+    assert_eq!(app.ui.views.len(), 2);
+    assert_eq!(app.ui.views.iter().map(|view| view.zoom).collect::<Vec<_>>(), vec![2.0, 3.0]);
+    assert!(app.ui.status_error);
+    assert_eq!(app.session.documents()[1].doc.id, child_id);
+    assert!(app.session.documents()[1].is_dirty());
+    assert!(app.session.smart_links.iter().any(|link| link.child == child_id));
+}

@@ -764,10 +764,14 @@ fn front(app: &mut PhotocraftApp, id: &str, params: &Value) -> Option<Result<Val
     if id == "file.closeAll" || id == "file.closeOthers" {
         // Keep the remaining document's view (views are index-aligned with documents).
         let keep = app.session.active_index().and_then(|i| app.ui.views.get(i).cloned());
+        let document_count = app.session.documents().len();
         let r = app.run(id, params.clone());
         if r.is_ok() {
             app.ui.views = if id == "file.closeAll" { Vec::new() } else { keep.into_iter().collect() };
             app.ui.windows.clear();
+            app.sync_views();
+        } else if app.session.documents().len() != document_count {
+            // Reverse-index batches remove only a suffix before a close error.
             app.sync_views();
         }
         return Some(r);
