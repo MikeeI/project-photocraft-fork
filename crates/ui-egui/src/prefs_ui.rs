@@ -19,6 +19,20 @@ use crate::PhotocraftApp;
 use crate::state::DialogKind;
 use crate::theme::{ThemeKind, Tokens};
 
+const AUTOSAVE_FAILED_PREFIX: &str = "Autosave failed:";
+const AUTOSAVE_SERVICE_CONFIGURATION_ERROR: &str = "Autosave service is incomplete";
+const RECOVERY_DISCARD_FAILED_PREFIX: &str = "Recovery cleanup failed:";
+
+#[derive(Default)]
+struct AutosaveState {
+    /// Open document incarnation whose pending and persisted revisions belong to.
+    instance_id: Option<u64>,
+    persisted_revision: Option<u64>,
+    pending_revision: Option<u64>,
+    /// Latest failed revision; a successful newer snapshot also recovers it.
+    failure: Option<(u64, String)>,
+}
+
 /// Shell runtime state for preferences, autosave and snapping (not serialised).
 #[derive(Default)]
 pub struct Runtime {
@@ -26,7 +40,8 @@ pub struct Runtime {
     saved_rev: u64,
     theme_pref: Option<Theme>,
     next_autosave_ms: f64,
-    autosaved: HashMap<DocId, u64>,
+    /// A revision is acknowledged only after its worker save succeeds.
+    autosave: HashMap<DocId, AutosaveState>,
     log_len: usize,
     /// Snapping state of the drag in progress (see `snap_ui`).
     pub(crate) snap: Option<crate::snap_ui::ActiveSnap>,
@@ -225,21 +240,69 @@ pub fn tick(app: &mut PhotocraftApp, ctx: &egui::Context) {
 
 /// Background autosave of documents with unsaved changes every N minutes (File Handling).
 fn autosave(app: &mut PhotocraftApp) {
-    let fh = &app.session.prefs().file_handling;
-    let (on, minutes) = (fh.autosave, fh.autosave_minutes.max(1));
-    if app.services.autosave.is_none() {
-        return;
-    }
-    let now = crate::gpu_canvas::now_ms();
-    // Saved or closed documents drop their recovery data.
-    let live: HashMap<DocId, bool> = app.session.documents().iter().map(|d| (d.doc.id, d.is_dirty())).collect();
-    let stale: Vec<DocId> = app.prefs_rt.autosaved.keys().filter(|id| live.get(id) != Some(&true)).copied().collect();
-    for id in stale {
-        app.prefs_rt.autosaved.remove(&id);
-        if let Some(d) = app.services.discard_autosave.as_mut() {
-            d(id.0);
+    let completions = match (app.services.autosave.as_ref(), app.services.autosave_results.as_mut()) {
+        (None, None) => return,
+        (Some(_), Some(take_results)) => take_results(),
+        _ => {
+            app.ui.status = AUTOSAVE_SERVICE_CONFIGURATION_ERROR.to_string();
+            return;
+        }
+    };
+    // Persisted IDs can be reused after close, so asynchronous results also match the open incarnation.
+    let live: HashMap<DocId, (u64, bool)> =
+        app.session.documents().iter().map(|document| (document.doc.id, (document.instance_id, document.is_dirty()))).collect();
+    for completion in completions {
+        let id = DocId(completion.document_id);
+        if live.get(&id).is_none_or(|(instance_id, _)| *instance_id != completion.document_instance_id) {
+            continue;
+        }
+        let Some(state) = app.prefs_rt.autosave.get_mut(&id) else {
+            continue;
+        };
+        if state.instance_id != Some(completion.document_instance_id) {
+            continue;
+        }
+        if state.pending_revision.is_some_and(|pending| completion.revision >= pending) {
+            state.pending_revision = None;
+        }
+        match completion.result {
+            Ok(()) => {
+                state.persisted_revision = Some(state.persisted_revision.map_or(completion.revision, |saved| saved.max(completion.revision)));
+                if state.failure.as_ref().is_some_and(|(failed_revision, _)| completion.revision >= *failed_revision) {
+                    state.failure = None;
+                }
+            }
+            Err(error) => {
+                if state.failure.as_ref().is_none_or(|(failed_revision, _)| completion.revision >= *failed_revision) {
+                    app.ui.status = format!("{AUTOSAVE_FAILED_PREFIX} {error}");
+                    state.failure = Some((completion.revision, error));
+                }
+            }
         }
     }
+
+    let fh = &app.session.prefs().file_handling;
+    let (on, minutes) = (fh.autosave, fh.autosave_minutes.max(1));
+    let now = crate::gpu_canvas::now_ms();
+    // Saved, closed, or reopened documents drop their former recovery data.
+    let stale: Vec<DocId> = app
+        .prefs_rt
+        .autosave
+        .iter()
+        .filter_map(|(id, state)| match live.get(id) {
+            Some((instance_id, true)) if state.instance_id == Some(*instance_id) => None,
+            _ => Some(*id),
+        })
+        .collect();
+    for id in stale {
+        app.prefs_rt.autosave.remove(&id);
+        if let Some(discard) = app.services.discard_autosave.as_mut()
+            && let Err(error) = discard(id.0)
+        {
+            app.ui.status = format!("{RECOVERY_DISCARD_FAILED_PREFIX} {error}");
+        }
+    }
+    sync_autosave_failure_status(app);
     if !on {
         return;
     }
@@ -256,18 +319,50 @@ fn autosave(app: &mut PhotocraftApp) {
         .session
         .documents()
         .iter()
-        .filter(|d| d.is_dirty() && app.prefs_rt.autosaved.get(&d.doc.id) != Some(&d.revision))
-        .map(|d| (d.doc.clone(), d.revision, d.path.clone()))
+        .filter(|doc| {
+            doc.is_dirty()
+                && app.prefs_rt.autosave.get(&doc.doc.id).is_none_or(|state| {
+                    state.instance_id != Some(doc.instance_id)
+                        || (state.persisted_revision != Some(doc.revision) && state.pending_revision != Some(doc.revision))
+                })
+        })
+        .map(|doc| (doc.doc.clone(), doc.instance_id, doc.revision, doc.path.clone()))
         .collect();
-    for (doc, rev, path) in jobs {
-        if let Some(save) = app.services.autosave.as_mut() {
-            match save(&doc, rev, path.as_deref()) {
-                Ok(()) => {
-                    app.prefs_rt.autosaved.insert(doc.id, rev);
+    for (doc, instance_id, revision, path) in jobs {
+        let result = match app.services.autosave.as_mut() {
+            Some(save) => save(&doc, instance_id, revision, path.as_deref()),
+            None => Err(AUTOSAVE_SERVICE_CONFIGURATION_ERROR.to_string()),
+        };
+        let state = app.prefs_rt.autosave.entry(doc.id).or_default();
+        if state.instance_id != Some(instance_id) {
+            *state = AutosaveState { instance_id: Some(instance_id), ..Default::default() };
+        }
+        match result {
+            Ok(()) => state.pending_revision = Some(revision),
+            Err(error) => {
+                if state.pending_revision == Some(revision) {
+                    state.pending_revision = None;
                 }
-                Err(e) => app.ui.status = format!("Autosave failed: {e}"),
+                if state.failure.as_ref().is_none_or(|(failed_revision, _)| revision >= *failed_revision) {
+                    app.ui.status = format!("{AUTOSAVE_FAILED_PREFIX} {error}");
+                    state.failure = Some((revision, error));
+                }
             }
         }
+    }
+    sync_autosave_failure_status(app);
+}
+
+fn sync_autosave_failure_status(app: &mut PhotocraftApp) {
+    let failure =
+        app.prefs_rt.autosave.iter().filter_map(|(id, state)| state.failure.as_ref().map(|(_, error)| (*id, error.clone()))).min_by_key(|(id, _)| id.0);
+    match failure {
+        Some((_, error)) if app.ui.status.starts_with(AUTOSAVE_FAILED_PREFIX) => {
+            app.ui.status = format!("{AUTOSAVE_FAILED_PREFIX} {error}");
+        }
+        Some(_) => {}
+        None if app.ui.status.starts_with(AUTOSAVE_FAILED_PREFIX) => app.ui.status.clear(),
+        None => {}
     }
 }
 
@@ -1403,14 +1498,22 @@ mod tests {
 
     #[test]
     fn autosave_runs_for_dirty_documents() {
-        type Saved = Arc<Mutex<Vec<(u64, u64)>>>;
+        type Saved = Arc<Mutex<Vec<(u64, u64, u64)>>>;
+        type Completed = Arc<Mutex<Vec<crate::AutosaveCompletion>>>;
         let saved: Saved = Arc::default();
+        let completed: Completed = Arc::default();
         let s2 = saved.clone();
+        let c2 = completed.clone();
         let services = crate::Services {
-            autosave: Some(Box::new(move |doc: &Arc<photocraft_doc::Document>, rev: u64, _path: Option<&str>| {
-                s2.lock().unwrap().push((doc.id.0, rev));
+            autosave: Some(Box::new(move |doc: &Arc<photocraft_doc::Document>, instance_id: u64, rev: u64, _path: Option<&str>| {
+                s2.lock().unwrap().push((doc.id.0, instance_id, rev));
                 Ok(())
             })),
+            autosave_results: Some(Box::new(move || {
+                let mut results = c2.lock().unwrap();
+                std::mem::take(&mut *results)
+            })),
+            discard_autosave: Some(Box::new(|_| Err("cannot remove stale recovery".into()))),
             ..Default::default()
         };
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), services);
@@ -1423,10 +1526,15 @@ mod tests {
         app.run("edit.fill", json!({"color": "#ff0000"})).unwrap();
         autosave_now(&mut app);
         tick(&mut app, &ctx);
+        let first = saved.lock().unwrap()[0];
         assert_eq!(saved.lock().unwrap().len(), 1);
         autosave_now(&mut app);
         tick(&mut app, &ctx);
-        assert_eq!(saved.lock().unwrap().len(), 1, "unchanged since the last autosave");
+        assert_eq!(saved.lock().unwrap().len(), 1, "an in-flight revision is not queued twice");
+        completed.lock().unwrap().push(crate::AutosaveCompletion { document_id: first.0, document_instance_id: first.1, revision: first.2, result: Ok(()) });
+        autosave_now(&mut app);
+        tick(&mut app, &ctx);
+        assert_eq!(saved.lock().unwrap().len(), 1, "a persisted revision is not autosaved again");
 
         // Loaded copies can have the same persisted identity and dirty revision.
         let original = app.session.active().unwrap().doc.clone();
@@ -1435,18 +1543,105 @@ mod tests {
         app.run("edit.fill", json!({"color": "#0000ff"})).unwrap();
         autosave_now(&mut app);
         tick(&mut app, &ctx);
-        {
-            let saved = saved.lock().unwrap();
-            assert_eq!(saved.len(), 2, "both dirty copies need independent autosaves");
-            assert_eq!(saved[0].0, original_id.0);
-            assert_ne!(saved[0].0, saved[1].0, "recovery ownership must be distinct");
-            assert_eq!(saved[0].1, saved[1].1, "the revisions must match to reproduce suppression");
-        }
+        let second = saved.lock().unwrap()[1];
+        assert_eq!(saved.lock().unwrap().len(), 2, "both dirty copies need independent autosaves");
+        assert_eq!(saved.lock().unwrap()[0].0, original_id.0);
+        assert_ne!(saved.lock().unwrap()[0].0, second.0, "recovery ownership must be distinct");
+        assert_eq!(saved.lock().unwrap()[0].2, second.2, "the revisions must match to reproduce suppression");
+
+        completed.lock().unwrap().push(crate::AutosaveCompletion {
+            document_id: second.0,
+            document_instance_id: second.1,
+            revision: second.2,
+            result: Err("disk full".into()),
+        });
+        completed.lock().unwrap().push(crate::AutosaveCompletion { document_id: first.0, document_instance_id: first.1, revision: first.2, result: Ok(()) });
+        tick(&mut app, &ctx);
+        assert!(app.ui.status.starts_with(AUTOSAVE_FAILED_PREFIX));
+        assert_eq!(saved.lock().unwrap().len(), 2, "failed saves retry on the next autosave interval");
+        autosave_now(&mut app);
+        tick(&mut app, &ctx);
+        let retry = saved.lock().unwrap()[2];
+        assert_eq!(retry, second, "a failed worker result leaves the revision eligible for retry");
+        completed.lock().unwrap().push(crate::AutosaveCompletion { document_id: retry.0, document_instance_id: retry.1, revision: retry.2, result: Ok(()) });
+        tick(&mut app, &ctx);
+        assert!(!app.ui.status.starts_with(AUTOSAVE_FAILED_PREFIX), "successful retry clears the autosave failure");
+        assert_eq!(saved.lock().unwrap().len(), 3, "a persisted retry is not queued again");
+
         app.run("prefs.set", json!({"path": "fileHandling.autosave", "value": false})).unwrap();
         app.run("edit.fill", json!({"color": "#00ff00"})).unwrap();
         autosave_now(&mut app);
         tick(&mut app, &ctx);
-        assert_eq!(saved.lock().unwrap().len(), 2, "autosave off");
+        assert_eq!(saved.lock().unwrap().len(), 3, "autosave off");
+        app.run("file.new", json!({"width": 8, "height": 8})).unwrap();
+        let clean_id = app.session.active().unwrap().doc.id;
+        app.prefs_rt.autosave.insert(clean_id, AutosaveState::default());
+        tick(&mut app, &ctx);
+        assert_eq!(app.ui.status, format!("{RECOVERY_DISCARD_FAILED_PREFIX} cannot remove stale recovery"));
+    }
+
+    #[test]
+    fn autosave_completion_does_not_cross_document_reopen() {
+        type Saved = Arc<Mutex<Vec<(u64, u64, u64)>>>;
+        type Completed = Arc<Mutex<Vec<crate::AutosaveCompletion>>>;
+        let saved: Saved = Arc::default();
+        let completed: Completed = Arc::default();
+        let discarded = Arc::new(Mutex::new(Vec::new()));
+        let s2 = saved.clone();
+        let c2 = completed.clone();
+        let d2 = discarded.clone();
+        let services = crate::Services {
+            autosave: Some(Box::new(move |doc: &Arc<photocraft_doc::Document>, instance_id: u64, rev: u64, _path: Option<&str>| {
+                s2.lock().unwrap().push((doc.id.0, instance_id, rev));
+                Ok(())
+            })),
+            autosave_results: Some(Box::new(move || {
+                let mut results = c2.lock().unwrap();
+                std::mem::take(&mut *results)
+            })),
+            discard_autosave: Some(Box::new(move |id| {
+                d2.lock().unwrap().push(id);
+                Ok(())
+            })),
+            ..Default::default()
+        };
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), services);
+        let ctx = egui::Context::default();
+        app.run("file.new", json!({"width": 8, "height": 8})).unwrap();
+        app.run("edit.fill", json!({"color": "#ff0000"})).unwrap();
+        autosave_now(&mut app);
+        tick(&mut app, &ctx);
+        let first = saved.lock().unwrap()[0];
+
+        let closed = app.session.close(0).unwrap();
+        let reopened_index = app.session.add_document(closed.doc.as_ref().clone(), closed.path.clone());
+        let reopened = &app.session.documents()[reopened_index];
+        assert_eq!(reopened.doc.id.0, first.0, "closing releases the persisted ID for reuse");
+        assert_ne!(reopened.instance_id, first.1);
+        app.run("edit.fill", json!({"color": "#0000ff"})).unwrap();
+        assert_eq!(app.session.active().unwrap().revision, first.2, "reopened revisions can collide");
+
+        autosave_now(&mut app);
+        tick(&mut app, &ctx);
+        let second = saved.lock().unwrap()[1];
+        assert_eq!(second.0, first.0);
+        assert_ne!(second.1, first.1);
+        assert_eq!(second.2, first.2);
+        assert_eq!(*discarded.lock().unwrap(), vec![first.0], "the old recovery worker is discarded before reuse");
+
+        completed.lock().unwrap().push(crate::AutosaveCompletion { document_id: first.0, document_instance_id: first.1, revision: first.2, result: Ok(()) });
+        tick(&mut app, &ctx);
+        autosave_now(&mut app);
+        tick(&mut app, &ctx);
+        assert_eq!(saved.lock().unwrap().len(), 2, "a late completion cannot acknowledge the reopened instance");
+        assert_eq!(app.prefs_rt.autosave.get(&photocraft_doc::DocId(first.0)).unwrap().pending_revision, Some(second.2));
+
+        completed.lock().unwrap().push(crate::AutosaveCompletion { document_id: second.0, document_instance_id: second.1, revision: second.2, result: Ok(()) });
+        tick(&mut app, &ctx);
+        assert_eq!(app.prefs_rt.autosave.get(&photocraft_doc::DocId(second.0)).unwrap().persisted_revision, Some(second.2));
+        autosave_now(&mut app);
+        tick(&mut app, &ctx);
+        assert_eq!(saved.lock().unwrap().len(), 2, "the new instance stops queueing after its own save completes");
     }
 
     #[test]

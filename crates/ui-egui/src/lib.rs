@@ -161,10 +161,25 @@ pub type Inbox = std::sync::Arc<std::sync::Mutex<Vec<(String, Vec<u8>)>>>;
 pub type LoadTextFn = Box<dyn FnMut() -> Option<String>>;
 /// Persist the preferences text.
 pub type SaveTextFn = Box<dyn FnMut(&str) -> Result<(), String>>;
-/// Autosave a document snapshot for crash recovery: (snapshot, revision, original path).
-pub type AutosaveFn = Box<dyn FnMut(&std::sync::Arc<Document>, u64, Option<&str>) -> Result<(), String>>;
-/// Drop the recovery data of a document (by `DocId` value) once it is saved or closed.
-pub type DiscardAutosaveFn = Box<dyn FnMut(u64)>;
+/// Queue a document snapshot for crash recovery; results identify its open instance and revision.
+/// Arguments: snapshot, open-instance ID, revision, original path.
+pub type AutosaveFn = Box<dyn FnMut(&std::sync::Arc<Document>, u64, u64, Option<&str>) -> Result<(), String>>;
+/// Completed result for one open document instance and revision saved by the background worker.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AutosaveCompletion {
+    /// Runtime identity of the document whose saver completed.
+    pub document_id: u64,
+    /// Process-local incarnation of the open document.
+    pub document_instance_id: u64,
+    /// Revision represented by the saved snapshot.
+    pub revision: u64,
+    /// `Ok(())` means the snapshot and sidecar writes both succeeded.
+    pub result: Result<(), String>,
+}
+/// Drain completed background autosaves; pair with `AutosaveFn`.
+pub type AutosaveResultsFn = Box<dyn FnMut() -> Vec<AutosaveCompletion>>;
+/// Remove recovery data by document ID and report any worker or filesystem error.
+pub type DiscardAutosaveFn = Box<dyn FnMut(u64) -> Result<(), String>>;
 /// Load recoverable documents left by a previous session: (original path, document).
 pub type RecoverFn = Box<dyn FnMut() -> Vec<(Option<String>, Document)>>;
 /// Append text to a file (History Log).
@@ -206,6 +221,8 @@ pub struct Services {
     pub save_prefs: Option<SaveTextFn>,
     /// Crash-recovery autosave (Preferences › File Handling) and recovery at launch.
     pub autosave: Option<AutosaveFn>,
+    /// Poll completed background saves; required whenever `autosave` is configured.
+    pub autosave_results: Option<AutosaveResultsFn>,
     pub discard_autosave: Option<DiscardAutosaveFn>,
     pub recover: Option<RecoverFn>,
     /// History Log text file output.

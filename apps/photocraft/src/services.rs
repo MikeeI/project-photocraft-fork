@@ -65,8 +65,9 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
 }
 
 pub fn native(automation: Option<photocraft_automation::AuthorizedWorkspace>) -> Services {
-    let savers: Rc<RefCell<HashMap<u64, Autosaver>>> = Rc::default();
+    let savers: Rc<RefCell<HashMap<u64, (u64, Autosaver)>>> = Rc::default();
     let savers2 = savers.clone();
+    let savers3 = savers.clone();
     let clip: Rc<RefCell<Option<arboard::Clipboard>>> = Rc::default();
     let automation_read = automation.clone().map(|workspace| {
         Box::new(move |path: &str| {
@@ -146,17 +147,34 @@ pub fn native(automation: Option<photocraft_automation::AuthorizedWorkspace>) ->
         load_prefs: Some(Box::new(|| std::fs::read_to_string(prefs_file()?).ok())),
         save_prefs: Some(Box::new(|text: &str| write_atomic(&prefs_file().ok_or("no config directory")?, text.as_bytes()))),
         // Crash recovery: background incremental .pcraft saves into the recovery directory.
-        autosave: Some(Box::new(move |doc: &Arc<Document>, revision: u64, path: Option<&str>| {
+        autosave: Some(Box::new(move |doc: &Arc<Document>, document_instance_id: u64, revision: u64, path: Option<&str>| {
             let dir = recovery_dir().ok_or("no config directory")?;
             let mut map = savers.borrow_mut();
-            let saver = map.entry(doc.id.0).or_insert_with(|| Autosaver::new(&dir, &format!("doc-{}", doc.id.0)));
-            saver.request(doc.clone(), revision, path.map(str::to_string), Default::default());
-            Ok(())
+            if map.get(&doc.id.0).is_some_and(|(instance_id, _)| *instance_id != document_instance_id) {
+                let Some((_, stale_saver)) = map.remove(&doc.id.0) else {
+                    return Err("autosave saver disappeared during instance replacement".to_string());
+                };
+                stale_saver.discard().map_err(|error| error.to_string())?;
+            }
+            let (_, saver) = map.entry(doc.id.0).or_insert_with(|| (document_instance_id, Autosaver::new(&dir, &format!("doc-{}", doc.id.0))));
+            saver.request(doc.clone(), revision, path.map(str::to_string), Default::default()).map_err(|error| error.to_string())
+        })),
+        autosave_results: Some(Box::new(move || {
+            let mut results = Vec::new();
+            for (document_id, (document_instance_id, saver)) in savers3.borrow_mut().iter_mut() {
+                for (revision, result) in saver.take_results() {
+                    results.push(photocraft_ui_egui::AutosaveCompletion {
+                        document_id: *document_id,
+                        document_instance_id: *document_instance_id,
+                        revision,
+                        result: result.map(|_| ()),
+                    });
+                }
+            }
+            results
         })),
         discard_autosave: Some(Box::new(move |id: u64| {
-            if let Some(s) = savers2.borrow_mut().remove(&id) {
-                let _ = s.discard();
-            }
+            if let Some((_, s)) = savers2.borrow_mut().remove(&id) { s.discard().map_err(|error| error.to_string()) } else { Ok(()) }
         })),
         recover: Some(Box::new(|| {
             let Some(dir) = recovery_dir() else { return Vec::new() };

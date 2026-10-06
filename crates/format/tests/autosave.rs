@@ -11,8 +11,32 @@ use photocraft_format::*;
 fn autosave_then_recover() {
     let dir = temp_dir("recovery");
     let doc = Arc::new(rich_doc(ColorMode::Rgb, SampleType::U16));
-    let saver = Autosaver::new(&dir, "doc-1");
-    saver.request(doc.clone(), 7, Some("/work/a.pcraft".into()), SaveOptions::default());
+    let mut saver = Autosaver::new(&dir, "doc-1");
+    let bundle = saver.bundle_path();
+    std::fs::write(&bundle, b"not a directory").unwrap();
+    saver.request(doc.clone(), 7, Some("/work/a.pcraft".into()), SaveOptions::default()).unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let (failed_revision, failed) = loop {
+        if let Some(result) = saver.take_results().into_iter().next() {
+            break result;
+        }
+        assert!(std::time::Instant::now() < deadline, "autosave failure was not reported");
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    };
+    assert_eq!(failed_revision, 7);
+    assert!(failed.is_err(), "a failed bundle write must not be acknowledged as persisted");
+    std::fs::remove_file(&bundle).unwrap();
+    saver.request(doc.clone(), 7, Some("/work/a.pcraft".into()), SaveOptions::default()).unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let (completed_revision, completed) = loop {
+        if let Some(result) = saver.take_results().into_iter().next() {
+            break result;
+        }
+        assert!(std::time::Instant::now() < deadline, "autosave completion was not reported");
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    };
+    assert_eq!(completed_revision, 7);
+    assert!(completed.unwrap().tiles_written > 0);
     let r = saver.flush().expect("a save ran");
     let stats = r.unwrap();
     assert!(stats.tiles_written > 0);
@@ -35,7 +59,7 @@ fn repeated_autosaves_are_incremental_and_coalesced() {
     for i in 0..5 {
         let id = doc.layers[1].id;
         doc.layer_mut(id).unwrap().surface_mut().unwrap().write_pixel(i, 0, &[1.0, 0.0, 0.0, 1.0]);
-        saver.request(Arc::new(doc.clone()), i as u64, None, SaveOptions::default());
+        saver.request(Arc::new(doc.clone()), i as u64, None, SaveOptions::default()).unwrap();
     }
     saver.flush().unwrap().unwrap();
     let e = list_recovery(&dir);
@@ -48,7 +72,7 @@ fn repeated_autosaves_are_incremental_and_coalesced() {
 fn discard_removes_everything() {
     let dir = temp_dir("discard");
     let saver = Autosaver::new(&dir, "x y/z");
-    saver.request(Arc::new(rich_doc(ColorMode::Grayscale, SampleType::U8)), 1, None, SaveOptions::default());
+    saver.request(Arc::new(rich_doc(ColorMode::Grayscale, SampleType::U8)), 1, None, SaveOptions::default()).unwrap();
     let path = saver.bundle_path();
     assert!(path.file_name().unwrap().to_string_lossy().starts_with("x_y_z"));
     saver.discard().unwrap();

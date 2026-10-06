@@ -84,6 +84,7 @@ pub mod web_cmds;
 mod wia_cmds;
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use photocraft_doc::{Document, LayerId};
 use photocraft_ops::History;
@@ -125,10 +126,15 @@ pub(crate) fn active_layer_of(s: &Session) -> std::result::Result<&photocraft_do
     d.active_layer.and_then(|id| d.doc.layer(id)).ok_or_else(|| "no active layer".into())
 }
 
+// This counter only allocates unique IDs; it does not publish document state.
+static NEXT_DOC_INSTANCE_ID: AtomicU64 = AtomicU64::new(1);
+
 /// Per-document editing state.
 #[derive(Clone, Debug)]
 pub struct DocState {
     pub doc: Arc<Document>,
+    /// Process-local incarnation token; a persisted `DocId` may be reused after close.
+    pub instance_id: u64,
     pub history: History,
     /// The primary ("key") layer: what single-layer commands act on. Always a member of
     /// `selected_layers` when set.
@@ -160,6 +166,7 @@ impl DocState {
         let active_layer = doc.top_layer();
         Self {
             doc: Arc::new(doc),
+            instance_id: NEXT_DOC_INSTANCE_ID.fetch_add(1, Ordering::Relaxed),
             history: History::default(),
             active_layer,
             selected_layers: active_layer.into_iter().collect(),
