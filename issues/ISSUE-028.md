@@ -8,12 +8,12 @@ Contribution-Priority: Medium
 Root-Cause-Confidence: High
 Finding-Category: Correctness
 Created: 2026-10-05
-Updated: 2026-10-05
-Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Updated: 2026-10-06
+Source: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
 
 ## Root-Cause
 
-[S] Arbitrary whole-image rotation bypasses position/all locks only on root layers before recursive transformation.
+[S] Whole-image rotation bypasses position/all locks only at the root; recursive transformation rejects locked descendants.
 Review mapping: `E15`, VALID; severity Medium.
 
 ## Reach-and-Impact
@@ -24,51 +24,67 @@ Trigger: rotate an image containing an unlocked group with a position-locked or 
 
 ## Evidence
 
-- [S] `crates/engine/src/mode_cmds.rs:101-106` explicitly permits locked layers for whole-image rotation.
-- [S] `crates/engine/src/transform_cmds.rs:73-80` checks locks again while recursively visiting children.
-- [S] `crates/engine/src/lib.rs:338-345` installs the candidate document only after successful completion.
+- [S] `crates/engine/src/mode_cmds.rs::rotate_arbitrary` clears root `position`/`all` locks before calling `transform_layer`.
+- [S] `crates/engine/src/transform_cmds.rs::transform_layer` recursively rejects locked group children.
+- [S] `crates/engine/src/lib.rs::Session::edit` commits its candidate only after success, so failed rotation leaves live state unchanged.
+- [O] The 30° nested-lock reproduction failed before the fix with `Other("layer \"Locked pixels\" is locked")`.
+- [O] After the fix, root and grouped layers rotate with equal composites and all five lock flags retained.
+- [O] Nested locked `Background` layers also retain their name and lock flags after rotation.
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching root cause.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved pending a root-versus-group rotation comparison.
+Coverage: Local issue ledger checked on 2026-10-05; no matching root cause.
+Gaps: Upstream issues, PRs, discussions, and releases remain unsearched.
+Contribution fit: The bounded fix is verified; upstream target fit remains unresolved.
 
 ## Proposed-Change
 
-Forward the whole-image rotation lock-bypass policy recursively while preserving every stored lock flag.
+Propagate the whole-image lock-bypass policy recursively while preserving stored locks and Free Transform restrictions.
 
 ## Scope-and-Constraints
 
 - Do not weaken ordinary Free Transform lock enforcement.
 - Do not leave descendants unlocked after success or failure.
-- Preserve special Background-layer handling and transactional rollback.
+- Preserve root Background handling, descendant lock state, and transactional rollback.
 
 ## Verification
 
-Status: source-traced; no rotation sequence executed.
-- Rotate the same locked raster at the root and inside a group and compare transformed output.
-- Verify original lock flags survive successful rotation and failed transformation.
+Status: reproduced before the fix and verified after.
+
+- The 30° regression passes with equal root/group composites and all stored lock flags unchanged.
+- Nested locked `Background` layers retain their name and lock flags after rotation.
+- `cargo fmt --all` → passed.
+- `cargo test --quiet -p photocraft-engine` → 596 passed, 9 ignored.
+- `cargo test --quiet -p photocraft-engine whole_image_rotation_bypasses_nested_locks_without_changing_them` → 1 passed.
+- `cargo clippy --quiet -p photocraft-engine --all-targets -- -D warnings` → passed.
+- `cargo xtask layers` → 27 crates, no violations.
+- `cargo xtask wasm` → all 21 checks passed.
 
 ## Publication-Blockers
 
-- Nested-lock rotation behavior and unchanged lock-state evidence are missing.
-- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
+- Upstream issues, PRs, discussions, and releases remain unsearched.
+- Required GPT-6.1 Sol/xhigh review cannot be run with the current configured model.
+- The exact PR draft and approval remain outstanding.
 
 ## Next-Action
 
-Summary: Compare nested locked rotation
-Action: Run arbitrary image rotation on equivalent root-level and grouped locked raster layers.
-Done-When: Record command parameters, errors or output geometry, and before/after lock flags.
+Summary: Search upstream prior art
+Action: Check upstream issues, pull requests, discussions, and releases for this root cause.
+Done-When: Record coverage, candidates, classifications, and contribution fit.
 
 ## Pull-Request-Implementation
 
 Branch: fix/rotate-nested-locked-layers
-Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
-Scope: Apply whole-image rotation lock policy recursively while preserving stored locks and Free Transform restrictions.
-Commit: Pending.
-Push: Pending.
+Base: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
+Scope: Propagate whole-image lock bypass recursively without weakening Free Transform or changing stored locks.
+Commit: `fb066652a0f5b6fbacdd969c66c24a903942a7d7`
+Push: `origin/fix/rotate-nested-locked-layers`
 Checks:
-- Pending.
+- `cargo fmt --all` → passed.
+- `cargo test --quiet -p photocraft-engine` → 596 passed, 9 ignored.
+- `cargo test --quiet -p photocraft-engine whole_image_rotation_bypasses_nested_locks_without_changing_them` → 1 passed.
+- `cargo clippy --quiet -p photocraft-engine --all-targets -- -D warnings` → passed.
+- `cargo xtask layers` → 27 crates, no violations.
+- `cargo xtask wasm` → all 21 checks passed.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.
