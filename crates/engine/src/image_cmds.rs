@@ -490,6 +490,24 @@ mod tests {
     }
 
     #[test]
+    fn canvas_size_translates_smart_filter_mask_before_refresh() {
+        let mut s = session();
+        s.execute("layer.smartObjects.convertToSmartObject", json!({})).unwrap();
+        s.execute("select.rect", json!({"x": 0, "y": 0, "width": 20, "height": 20})).unwrap();
+        s.execute("filter.blur.gaussianBlur", json!({"radius": 3})).unwrap();
+        s.execute("image.canvasSize", json!({"width": 60, "height": 20, "anchor": "topRight"})).unwrap();
+
+        let LayerContent::Smart(sm) = &doc(&s).layers[1].content else { panic!("layer should remain a smart object") };
+        let filtered_through_mask = sm.cache.as_ref().unwrap().pixel(32, 12);
+
+        s.execute("layer.smartFilter.disableFilterMask", json!({})).unwrap();
+
+        let LayerContent::Smart(sm) = &doc(&s).layers[1].content else { panic!("layer should remain a smart object") };
+        let unmasked = sm.cache.as_ref().unwrap().pixel(32, 12);
+        assert_eq!(filtered_through_mask, unmasked, "the translated filter region must remain aligned before smart-object refresh");
+    }
+
+    #[test]
     fn resolution_only_change() {
         let mut s = session();
         s.execute("image.imageSize", json!({"resolution": 300, "resample": "none", "width": 999})).unwrap();
