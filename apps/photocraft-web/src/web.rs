@@ -157,7 +157,8 @@ fn services(inbox: Inbox, ctx: egui::Context) -> Services {
                 inbox.lock().unwrap_or_else(|e| e.into_inner()).push((file.file_name(), bytes));
                 ctx.request_repaint();
             });
-            None
+            // Browser selections arrive later through `inbox`; this call has no synchronous result.
+            Ok(None)
         })),
         // No save dialog on the web: the suggested name becomes the download name.
         pick_save: Some(Box::new(|suggested: &str| {

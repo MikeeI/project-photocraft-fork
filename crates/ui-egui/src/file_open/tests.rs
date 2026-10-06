@@ -29,7 +29,7 @@ fn app_with(pick_open: Option<(String, Vec<u8>)>, pick_save: Option<String>) -> 
             let warnings = if path.ends_with(".png") { vec!["Layers were flattened".to_string()] } else { Vec::new() };
             Ok((b"out".to_vec(), warnings))
         })),
-        pick_open: Some(Box::new(move || pick_open.take())),
+        pick_open: Some(Box::new(move || Ok(pick_open.take()))),
         pick_save: Some(Box::new(move |_s: &str| pick_save.clone())),
         write: Some(Box::new(move |p: &str, b: &[u8]| {
             w.borrow_mut().push((p.to_string(), b.to_vec()));

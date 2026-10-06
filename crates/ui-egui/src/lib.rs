@@ -139,7 +139,9 @@ pub struct ExportSettings {
 
 /// Encode a document: (file bytes, warnings about anything approximated or dropped).
 pub type ExportFn = Box<dyn Fn(&Document, &str, &ExportSettings) -> Result<(Vec<u8>, Vec<String>), String>>;
-pub type PickOpenFn = Box<dyn FnMut() -> Option<(String, Vec<u8>)>>;
+/// Pick and read a file; `Ok(None)` means cancellation or asynchronous platform delivery.
+/// `Err` preserves picker or read failures for the UI to report.
+pub type PickOpenFn = Box<dyn FnMut() -> Result<Option<(String, Vec<u8>)>, String>>;
 pub type PickSaveFn = Box<dyn FnMut(&str) -> Option<String>>;
 pub type WriteFn = Box<dyn FnMut(&str, &[u8]) -> Result<(), String>>;
 /// Read bytes through the desktop control session's authorized read root.
@@ -180,7 +182,7 @@ pub struct Services {
     pub import: Option<ImportFn>,
     /// Encode a document for a file name (format chosen by extension).
     pub export: Option<ExportFn>,
-    /// Show an "open file" dialog; returns (name, bytes).
+    /// Select and read a file using the platform's user-authorized picker.
     pub pick_open: Option<PickOpenFn>,
     /// Show a "save file" dialog; returns a path/name to write.
     pub pick_save: Option<PickSaveFn>,
@@ -631,14 +633,27 @@ impl PhotocraftApp {
         result
     }
 
+    /// Adapt the fallible provider to UI dispatch: absence or cancellation stays unhandled;
+    /// provider failures remain errors for the caller to report.
+    pub(crate) fn pick_open(&mut self) -> Option<Result<(String, Vec<u8>), String>> {
+        self.services.pick_open.as_mut().and_then(|pick| match pick() {
+            Ok(Some(file)) => Some(Ok(file)),
+            Ok(None) => None,
+            Err(error) => Some(Err(error)),
+        })
+    }
+
     /// File › Open: the platform dialog returns the chosen file's path (native; the web delivers
     /// picks through the inbox instead).
     pub fn open_dialog_file(&mut self) {
-        let picked = self.services.pick_open.as_mut().and_then(|f| f());
-        if let Some((path, bytes)) = picked
-            && let Err(e) = self.open_file(&path, &bytes)
-        {
-            self.open_failed(&file_open::display_name(&path), &e);
+        match self.pick_open() {
+            Some(Ok((path, bytes))) => {
+                if let Err(error) = self.open_file(&path, &bytes) {
+                    self.open_failed(&file_open::display_name(&path), &error);
+                }
+            }
+            Some(Err(error)) => self.open_failed("selected file", &error),
+            None => {}
         }
     }
 

@@ -64,6 +64,11 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
     photocraft_format::atomic_write(path, bytes).map_err(|e| e.to_string())
 }
 
+fn read_picked_file(path: &Path) -> Result<(String, Vec<u8>), String> {
+    let bytes = std::fs::read(path).map_err(|error| format!("{}: {error}", path.display()))?;
+    Ok((path.to_string_lossy().to_string(), bytes))
+}
+
 pub fn native(automation: Option<photocraft_automation::AuthorizedWorkspace>) -> Services {
     let savers: Rc<RefCell<HashMap<u64, Autosaver>>> = Rc::default();
     let savers2 = savers.clone();
@@ -95,9 +100,10 @@ pub fn native(automation: Option<photocraft_automation::AuthorizedWorkspace>) ->
             crate::crash_guard::guard("Export", || photocraft_io::export(doc, path, &opts).map(|r| (r.bytes, r.warnings)).map_err(|e| e.to_string()))
         })),
         pick_open: Some(Box::new(|| {
-            let path = rfd::FileDialog::new().add_filter("All Formats", OPEN_EXTS).add_filter("PhotoCraft", &["pcraft"]).pick_file()?;
-            let bytes = std::fs::read(&path).ok()?;
-            Some((path.to_string_lossy().to_string(), bytes))
+            let Some(path) = rfd::FileDialog::new().add_filter("All Formats", OPEN_EXTS).add_filter("PhotoCraft", &["pcraft"]).pick_file() else {
+                return Ok(None);
+            };
+            read_picked_file(&path).map(Some)
         })),
         pick_save: Some(Box::new(|suggested: &str| {
             let p = std::path::Path::new(suggested);
@@ -242,4 +248,35 @@ pub fn export_flat(doc: &Document, path: &str) -> Result<Vec<u8>, String> {
         _ => img,
     };
     photocraft_codecs::encode(&img, format, &EncodeOptions::default()).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_picked_file;
+    use photocraft_engine::Session;
+    use photocraft_ui_egui::{PhotocraftApp, Services};
+
+    #[test]
+    fn picker_cancellation_stays_silent_and_read_failures_are_reported() {
+        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("photocraft-picker-read-{}-{nonce}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("selected.psd");
+        std::fs::write(&path, b"selected").unwrap();
+        std::fs::remove_file(&path).unwrap();
+
+        let mut app = PhotocraftApp::new(Session::new(), Services { pick_open: Some(Box::new(|| Ok(None))), ..Services::default() });
+        app.open_dialog_file();
+        assert!(!app.ui.status_error);
+        assert!(app.ui.notices.is_empty());
+
+        let read_path = path.clone();
+        app.services.pick_open = Some(Box::new(move || read_picked_file(&read_path).map(Some)));
+        app.open_dialog_file();
+        assert!(app.session.documents().is_empty());
+        assert!(app.ui.status_error);
+        assert!(app.ui.status.contains(path.to_string_lossy().as_ref()), "{}", app.ui.status);
+        assert!(app.ui.notices.last().is_some_and(|notice| notice.error));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

@@ -1116,7 +1116,8 @@ pub fn confirm(app: &mut PhotocraftApp, f: &Map<String, Value>) -> Result<Value,
         "presetsIO" => {
             let kinds: Vec<&str> = ["brushes", "customShapes"].into_iter().filter(|k| f.get(*k).and_then(Value::as_bool).unwrap_or(true)).collect();
             if f.get("action").and_then(Value::as_str) == Some("import") {
-                let (name, bytes) = app.services.pick_open.as_mut().and_then(|p| p()).ok_or("cancelled")?;
+                let picker = app.services.pick_open.as_mut().ok_or("cancelled")?;
+                let (name, bytes) = picker()?.ok_or("cancelled")?;
                 let text = String::from_utf8(bytes).map_err(|_| format!("{name} is not a preset file"))?;
                 app.run("edit.presets.exportImportPresets", json!({"action": "import", "kinds": kinds, "data": text}))
             } else {
