@@ -98,11 +98,11 @@ fn rotate_arbitrary(s: &mut Session, p: &Value) -> Result<Value> {
                     m.surface = crate::transform_cmds::warp_gray(&m.surface, &h, interp);
                 }
             } else {
-                // Rotating the whole image moves locked layers too.
+                // Preserve the root Background special case while bypassing descendant locks.
                 let locks = l.locks;
                 l.locks.position = false;
                 l.locks.all = false;
-                crate::transform_cmds::transform_layer(None, l, &h, Some(a), interp)?;
+                crate::transform_cmds::transform_layer(None, l, &h, Some(a), crate::transform_cmds::TransformLockPolicy::Bypass, interp)?;
                 l.locks = locks;
             }
             // What Free Transform leaves alone: unlinked vector masks, gradient angles, artboards…

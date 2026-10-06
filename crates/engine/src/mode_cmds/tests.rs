@@ -43,6 +43,48 @@ fn colours(d: &Document) -> std::collections::HashSet<[u8; 3]> {
     set
 }
 
+fn locked_rotation_case(nested: bool, layer_name: &str) -> (Session, photocraft_doc::LayerId, photocraft_doc::Locks) {
+    let mut s = session(40, 20, 8, "rgb");
+    s.execute("layer.new.layer", json!({"name": layer_name})).unwrap();
+    paint(&mut s, |x, y| if (10..30).contains(&x) && (5..15).contains(&y) { [1.0, 0.0, 0.0, 1.0] } else { [0.0; 4] });
+    let id = s.active().unwrap().active_layer.unwrap();
+    let locks = photocraft_doc::Locks { transparency: true, pixels: true, position: true, artboard: true, all: true };
+    s.edit("lock rotation fixture", |doc, active| {
+        let index = doc.layers.iter().position(|l| l.id == id).unwrap();
+        let mut layer = doc.layers.remove(index);
+        layer.locks = locks;
+        if nested {
+            let group = Layer::group("Unlocked group", vec![layer]);
+            *active = Some(group.id);
+            doc.layers.insert(index, group);
+        } else {
+            *active = Some(id);
+            doc.layers.insert(index, layer);
+        }
+        Ok(())
+    })
+    .unwrap();
+    (s, id, locks)
+}
+
+#[test]
+fn whole_image_rotation_bypasses_nested_locks_without_changing_them() {
+    let (mut root, root_id, locks) = locked_rotation_case(false, "Locked pixels");
+    let (mut grouped, grouped_id, _) = locked_rotation_case(true, "Locked pixels");
+    let root_size = root.execute("image.rotation.arbitrary", json!({"angle": 30})).unwrap();
+    let grouped_size = grouped.execute("image.rotation.arbitrary", json!({"angle": 30})).unwrap();
+
+    assert_eq!(root_size, grouped_size);
+    assert_eq!(composite(doc(&root), false), composite(doc(&grouped), false));
+    assert_eq!(doc(&root).layer(root_id).unwrap().locks, locks);
+    assert_eq!(doc(&grouped).layer(grouped_id).unwrap().locks, locks);
+    let (mut grouped_background, background_id, background_locks) = locked_rotation_case(true, "Background");
+    grouped_background.execute("image.rotation.arbitrary", json!({"angle": 30})).unwrap();
+    let background = doc(&grouped_background).layer(background_id).unwrap();
+    assert_eq!(background.name, "Background");
+    assert_eq!(background.locks, background_locks);
+}
+
 #[test]
 fn rotate_arbitrary_grows_canvas_and_keeps_background() {
     for depth in [8, 16, 32] {

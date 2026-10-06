@@ -160,14 +160,30 @@ pub fn target_bounds(doc: &Document, surf: &Surface) -> Rect {
     }
 }
 
-pub(crate) fn transform_layer(doc_sel: Option<&Surface>, l: &mut Layer, h: &Homography, affine: Option<Affine>, interp: Interp) -> Result<()> {
-    // Photoshop turns the Background into a normal layer before transforming it.
-    if l.locks.position && l.name == "Background" {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TransformLockPolicy {
+    /// Enforce layer locks for user-driven transforms.
+    Respect,
+    /// Whole-canvas transforms may pass locked layers.
+    Bypass,
+}
+
+pub(crate) fn transform_layer(
+    doc_sel: Option<&Surface>,
+    l: &mut Layer,
+    h: &Homography,
+    affine: Option<Affine>,
+    lock_policy: TransformLockPolicy,
+    interp: Interp,
+) -> Result<()> {
+    // Free Transform demotes a locked Background; canvas rotation handles its root layer separately
+    // and preserves lock state on descendants.
+    if lock_policy == TransformLockPolicy::Respect && l.locks.position && l.name == "Background" {
         l.locks.position = false;
         l.locks.transparency = false;
         l.name = "Layer 0".into();
     }
-    if l.locks.position || l.locks.all {
+    if lock_policy == TransformLockPolicy::Respect && (l.locks.position || l.locks.all) {
         return Err(EngineError::Other(format!("layer \"{}\" is locked", l.name)));
     }
     // With a selection only the selected pixels move, and so only the same region of a linked
@@ -176,7 +192,7 @@ pub(crate) fn transform_layer(doc_sel: Option<&Surface>, l: &mut Layer, h: &Homo
     match &mut l.content {
         LayerContent::Group(g) => {
             for c in g.children.iter_mut() {
-                transform_layer(None, c, h, affine, interp)?;
+                transform_layer(None, c, h, affine, lock_policy, interp)?;
             }
         }
         LayerContent::Text(t) => {
@@ -383,7 +399,7 @@ fn transform(s: &mut Session, p: &Value) -> Result<Value> {
         let id = id.ok_or_else(|| EngineError::Other("no active layer".into()))?;
         let is_group = doc.layer(id).is_some_and(Layer::is_group);
         let l = doc.layer_mut(id).ok_or(EngineError::NoLayer(id))?;
-        transform_layer(if is_group { None } else { sel.as_ref() }, l, &h, affine, interp)?;
+        transform_layer(if is_group { None } else { sel.as_ref() }, l, &h, affine, TransformLockPolicy::Respect, interp)?;
         // Type layers re-render from their new transform.
         let snapshot = doc.clone();
         if let Some(l) = doc.layer_mut(id) {
