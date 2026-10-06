@@ -41,6 +41,10 @@ pub(crate) fn for_each_surface(layers: &mut [Layer], masks: bool, f: &mut dyn Fn
                 if let Some(c) = &mut sm.cache {
                     f(c, false)
                 }
+                // Disabled masks still track canvas geometry so re-enabling them stays aligned.
+                if masks && let Some(m) = &mut sm.filter_mask {
+                    f(&mut m.surface, true);
+                }
             }
             LayerContent::Group(g) => for_each_surface(&mut g.children, masks, f),
             _ => {}
@@ -465,6 +469,24 @@ mod tests {
             assert_eq!(sh.distance, 10.0);
             assert_eq!(l.mask.as_ref().unwrap().surface.default_pixel(), vec![1.0]);
         }
+    }
+
+    #[test]
+    fn image_size_scales_smart_filter_mask_before_refresh() {
+        let mut s = session();
+        s.execute("layer.smartObjects.convertToSmartObject", json!({})).unwrap();
+        s.execute("select.rect", json!({"x": 0, "y": 0, "width": 20, "height": 20})).unwrap();
+        s.execute("filter.blur.gaussianBlur", json!({"radius": 3})).unwrap();
+        s.execute("image.imageSize", json!({"width": 80, "resample": "nearest"})).unwrap();
+
+        let LayerContent::Smart(sm) = &doc(&s).layers[1].content else { panic!("layer should remain a smart object") };
+        let filtered_through_mask = sm.cache.as_ref().unwrap().pixel(22, 12);
+
+        s.execute("layer.smartFilter.disableFilterMask", json!({})).unwrap();
+
+        let LayerContent::Smart(sm) = &doc(&s).layers[1].content else { panic!("layer should remain a smart object") };
+        let unmasked = sm.cache.as_ref().unwrap().pixel(22, 12);
+        assert_eq!(filtered_through_mask, unmasked, "the selected filter region must scale with the canvas before smart-object refresh");
     }
 
     #[test]
