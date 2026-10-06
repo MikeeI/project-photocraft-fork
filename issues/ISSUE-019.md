@@ -9,7 +9,7 @@ Root-Cause-Confidence: High
 Finding-Category: Reliability
 Created: 2026-10-05
 Updated: 2026-10-06
-Source: `upstream/main@47f4abfed49e0d2f5b9277287b27dee632530ba4`
+Source: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
 
 ## Root-Cause
 
@@ -24,58 +24,66 @@ The reproduction proves this interleaving is possible, not its production freque
 
 ## Evidence
 
-- [S] `save_dir` snapshots existing objects, publishes its manifest, then garbage-collects from that earlier snapshot (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/format/src/store.rs#L387-L425).
-- [S] Current `store.rs::write_atomic` delegates file replacement to the exclusive-temp `atomic_write` implementation merged in PR #230 (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/format/src/store.rs#L457-L461; https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/format/src/atomic.rs#L117-L148).
-- [S] Desktop autosave uses ID-derived keys in a shared per-user recovery directory (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/apps/photocraft/src/services.rs#L164-L170).
-- [S] Each autosave worker serializes only its own queue and does not coordinate independent writer instances (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/format/src/autosave.rs#L131-L147).
+- [S] `save_dir` enumerates existing objects before publishing its manifest, then garbage-collects from that earlier snapshot (https://github.com/storytold/photocraft/blob/a96a621deea97d4b1ecd173b8b921587e33f3ca5/crates/format/src/store.rs#L387-L425).
+- [S] `write_atomic` uses per-file atomic replacement from PR #230; it does not serialize the directory transaction (https://github.com/storytold/photocraft/blob/a96a621deea97d4b1ecd173b8b921587e33f3ca5/crates/format/src/store.rs#L457-L461; https://github.com/storytold/photocraft/blob/a96a621deea97d4b1ecd173b8b921587e33f3ca5/crates/format/src/atomic.rs#L117-L148).
+- [S] Desktop autosave writes ID-keyed bundles into one shared `Recovery` directory (https://github.com/storytold/photocraft/blob/a96a621deea97d4b1ecd173b8b921587e33f3ca5/apps/photocraft/src/services.rs#L55-L58; https://github.com/storytold/photocraft/blob/a96a621deea97d4b1ecd173b8b921587e33f3ca5/apps/photocraft/src/services.rs#L148-L153).
+- [S] Each `Autosaver` owns one worker queue and does not coordinate other instances' directory writers (https://github.com/storytold/photocraft/blob/a96a621deea97d4b1ecd173b8b921587e33f3ca5/crates/format/src/autosave.rs#L46-L72; https://github.com/storytold/photocraft/blob/a96a621deea97d4b1ecd173b8b921587e33f3ca5/crates/format/src/autosave.rs#L125-L140).
 
 ## Prior-Art
 
-Coverage: upstream issue #203, merged PR #230, and current source reviewed on 2026-10-06; targeted searches found no cross-writer bundle-GC fix.
-PR #230 adds exclusive temporary files and atomic file replacement but does not serialize the directory transaction across object enumeration, manifest publication, and GC (https://github.com/storytold/photocraft/pull/230).
+Coverage: upstream issue #203, merged PR #230, v0.2.0 release notes, and current source at `a96a621` reviewed on 2026-10-06.
+Two issue and two PR searches for `save_dir object manifest` and `bundle lock concurrent GC` returned no matches.
+PR #230 adds atomic replacement for individual files, not serialization across object enumeration, manifest publication, and GC (https://github.com/storytold/photocraft/pull/230).
+The v0.2.0 release notes mention no concurrent directory-bundle fix (https://github.com/storytold/photocraft/releases/tag/v0.2.0).
+The Discussions route returned HTTP 404; discussion history remains unsearched (https://github.com/storytold/photocraft/discussions).
 `ISSUE-014` owns destructive single-file overwrite; `ISSUE-018` owns same-session document-ID collisions.
 Contribution fit: the controlled reproduction demonstrates a distinct bundle-level stale-GC failure.
 
 ## Proposed-Change
 
-Serialize each target's directory-bundle object enumeration, writes, manifest publication, and garbage collection across processes.
-Unique temporary files and process-local locks alone cannot protect objects referenced by another writer's committed manifest.
+Serialize directory-bundle transactions sharing a canonical parent from object enumeration through final garbage collection.
+Use one stable parent lock to keep bundle deletion from splitting waiters without leaving a persistent lock file per document.
 
 ## Scope-and-Constraints
 
 - Preserve incremental content reuse and complete-manifest publication.
-- Hold cross-process coordination from object enumeration through final garbage collection.
-- Unique temp files and process-local locks do not coordinate independent processes.
-- Do not infer power-loss durability from atomic rename or claim a reproduced race.
+- Hold the stable parent-level lock from object enumeration through final garbage collection.
+- Accept sibling-bundle serialization to bound lock-file growth and preserve one lock inode across bundle deletion.
+- Do not infer power-loss durability or production frequency from atomic rename or the controlled race.
 
 ## Verification
 
-Status: controlled cross-process reproduction and focused regression pass.
-- Baseline: on Ubuntu 24.04.5, x86_64, Linux 6.8.0-107-generic, `strace` delayed writer A after its successful object rename; writer B completed a baseline save while A was paused; A then published a manifest whose object had been removed, and `load_path` failed.
-- Fixed branch: writer B blocked on `flock(3, LOCK_EX)` until writer A finished; both writers exited successfully and final `load_path` verification passed.
-- Regression: `cargo test --locked -p photocraft-format --test roundtrip directory_incremental_and_gc -- --exact` passed.
+Status: controlled baseline reproduction and rebased source checks pass.
+- Baseline: `strace` delayed writer A after its object rename at `47f4abf`; writer B's stale-snapshot GC removed it, and final loading failed. The affected upstream `store.rs` is unchanged through `a96a621`.
+- Fix: the shared parent lock made writer B wait for A; both saves completed and final bundle loading passed.
+- Full `photocraft-format` tests passed; all three modified directory-save tests passed again after isolating lock files inside cleaned temporary roots.
+- Strict format Clippy and `cargo fmt --package photocraft-format -- --check` passed after the cleanup.
+- `cargo xtask layers` passed with 27 crates and no violations; `cargo xtask wasm` passed all 21 packages.
+- `cargo xtask test-corpus --changed` verified pinned corpora and passed corpus suites before the test-root cleanup.
 
 ## Publication-Blockers
 
-- Upstream issue/PR prior art and the exact current PR draft remain unresolved.
+- The exact final PR draft is pending; discussion history could not be inspected because the route returned HTTP 404.
+- The required independent GPT-6.1 Sol/xhigh review and truthful extra-high public disclosure are unavailable in this runtime.
+- Human approval of the exact current draft and target remains pending; no PR was created.
 
 ## Next-Action
 
-Summary: Complete upstream PR evidence
-Action: Search current upstream prior art and prepare the exact pull request draft.
-Done-When: Record search coverage and exact target/body without publishing.
+Summary: Prepare exact PR draft
+Action: Record the complete title, body, target, and truthful required disclosure before requesting approval.
+Done-When: The exact current draft and target are recorded for human review without unsupported review or model claims.
 
 ## Pull-Request-Implementation
 
 Branch: fix/concurrent-native-publication
-Base: `upstream/main@47f4abfed49e0d2f5b9277287b27dee632530ba4`
-Scope: Coordinate directory-bundle publication and garbage collection across processes so stale snapshots cannot remove objects from a committed manifest.
-Commit: `7b272bd`
+Base: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
+Scope: Serialize directory-bundle publication and garbage collection across processes without stale-snapshot object deletion.
+Commit: `f50b015329e9242842f4d41fa47162b953849d4b`
 Push: `origin/fix/concurrent-native-publication`
 Checks:
-- `cargo test --locked -p photocraft-format` → 68 passed.
-- `cargo clippy --locked -p photocraft-format --all-targets -- -D warnings` → passed.
-- `cargo xtask layers` → passed; 27 crates, no layering violations.
-- `cargo xtask wasm` → passed from this worktree.
-- `cargo xtask test-corpus` → all pinned corpora verified; corpus suites passed from this worktree.
-- Controlled cross-process baseline failed to load after stale GC; fixed branch serialized B behind A and loaded successfully.
+- `cargo test --locked --quiet -p photocraft-format` → passed; three directory-save tests passed again after temp-root cleanup.
+- `cargo clippy --locked --quiet -p photocraft-format --all-targets -- -D warnings` → passed.
+- `cargo fmt --package photocraft-format -- --check` → passed.
+- `cargo xtask layers` → 27 crates, no layering violations.
+- `cargo xtask wasm` → all 21 wasm-compatible packages passed.
+- `cargo xtask test-corpus --changed` → all pinned corpora verified; corpus suites passed.
