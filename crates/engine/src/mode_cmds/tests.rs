@@ -159,6 +159,36 @@ fn color_table_presets_and_entries() {
     s.execute("image.mode.colorTable", json!({"transparent": 0})).unwrap();
     assert!(s.execute("image.mode.colorTable", json!({"table": "nope"})).is_err());
     assert!(s.execute("image.mode.colorTable", json!({"entries": {"999": "#000000"}})).is_err());
+    let mut s = Session::new();
+    s.execute("file.new", json!({"width": 8, "height": 1, "background": "transparent"})).unwrap();
+    paint(&mut s, |x, _| {
+        if x < 3 {
+            [1.0, 0.0, 0.0, 1.0]
+        } else if x < 6 {
+            [0.0, 0.0, 1.0, 1.0]
+        } else {
+            [0.0; 4]
+        }
+    });
+    s.execute("image.mode.indexedColor", json!({"palette": "exact", "dither": "none", "forced": "none"})).unwrap();
+    let table = doc(&s).color_table.clone().unwrap();
+    let transparent = table.transparent.unwrap() as usize;
+    let red = table.colors.iter().position(|color| *color == [255, 0, 0]).unwrap();
+    let blue = table.colors.iter().position(|color| *color == [0, 0, 255]).unwrap();
+    let (first, second, first_x, second_x) = if red < blue { (red, blue, 0, 4) } else { (blue, red, 4, 0) };
+    s.execute("image.mode.colorTable", json!({"transparent": null})).unwrap();
+    let restored = doc(&s).layers[0].surface().unwrap().rgba(7, 0);
+    let transparency_restored = restored[3] > 0.99;
+    let entry = second.to_string();
+    s.execute("image.mode.colorTable", json!({"entries": {(entry.clone()): table.colors[first]}})).unwrap();
+    s.execute("image.mode.colorTable", json!({"entries": {(entry): [0, 255, 0]}})).unwrap();
+    let first_pixel = doc(&s).layers[0].surface().unwrap().rgba(first_x, 0);
+    let second_pixel = doc(&s).layers[0].surface().unwrap().rgba(second_x, 0);
+    let duplicate_identity_preserved = second_pixel[1] > 0.99 && first_pixel[1] < 0.01;
+    assert!(
+        transparency_restored && duplicate_identity_preserved,
+        "palette identity lost: transparent pixel={restored:?}, first={first_pixel:?}, second={second_pixel:?}, transparent index={transparent}"
+    );
 }
 
 #[test]
