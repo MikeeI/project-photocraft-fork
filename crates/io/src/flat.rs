@@ -255,6 +255,26 @@ fn opaque_surface(s: &Surface, r: Rect) -> bool {
 
 /// Flattens and encodes as `format`.
 pub fn export_flat(doc: &Document, format: Format, opts: &ExportOptions) -> Result<ExportResult, IoError> {
+    let mut result = export_flat_inner(doc, format, opts)?;
+    let mut warnings = document_loss_warnings(doc);
+    warnings.append(&mut result.warnings);
+    result.warnings = warnings;
+    Ok(result)
+}
+
+fn document_loss_warnings(doc: &Document) -> Vec<String> {
+    let mut warnings = Vec::new();
+    if !doc.channels.is_empty() {
+        warnings.push(format!("{} saved channel(s) are not preserved as editable channels", doc.channels.len()));
+    }
+    if doc.quick_mask.is_some() {
+        warnings.push("Quick Mask is not preserved by flat export".into());
+    }
+    warnings
+}
+
+// Recursive mode conversions share dispatch; the outer call attaches document losses once.
+fn export_flat_inner(doc: &Document, format: Format, opts: &ExportOptions) -> Result<ExportResult, IoError> {
     if let Some(r) = export_mode_specific(doc, format, opts)? {
         return Ok(r);
     }
@@ -347,7 +367,7 @@ fn export_mode_specific(doc: &Document, format: Format, opts: &ExportOptions) ->
             shown.mode = ColorMode::Rgb;
             shown.icc_profile = None;
             shown.duotone = None;
-            let mut r = export_flat(&shown, format, opts)?;
+            let mut r = export_flat_inner(&shown, format, opts)?;
             r.warnings.retain(|w| !w.contains("flattened"));
             r.warnings.push(format!("Duotone ({} inks) written as RGB", d.inks.len()));
             Ok(Some(r))
