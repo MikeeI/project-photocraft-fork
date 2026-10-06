@@ -9,7 +9,7 @@ Root-Cause-Confidence: High
 Finding-Category: Correctness
 Created: 2026-10-05
 Updated: 2026-10-06
-Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Source: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
 
 ## Root-Cause
 
@@ -21,20 +21,19 @@ Review mapping: `E13`, VALID; severity Medium.
 Trigger: resize or translate a canvas containing a renderable Smart Object with a nonuniform filter mask.
 [S] Image Size refreshes the smart content immediately with an unscaled mask.
 [S] Canvas translation can initially move the cache correctly but exposes mask misalignment on the next refresh.
-No geometry/filter sequence was executed.
+[O] The pre-fix Image Size defect reproduced; post-fix regressions verify resampling and delayed Canvas Size refresh.
 
 ## Evidence
 
-- [S] `crates/engine/src/image_cmds.rs:20-48` omits `sm.filter_mask.surface` from mask-aware traversal.
-- [S] `crates/engine/src/image_cmds.rs:128-142,149-162` uses that traversal for resizing and translation.
-- [S] `crates/engine/src/canvas_geom.rs:103,180-195` transforms smart placement and refreshes content.
-- [S] `crates/engine/src/smart_cmds.rs:255-266,302-320` samples the filter mask in placed document coordinates.
-- [S] `crates/engine/src/smart_cmds.rs:402-410` already moves the filter mask during ordinary object movement.
-- [S] Current main's mask-aware image traversal visits `sm.cache` but omits `sm.filter_mask.surface`; Image Size and `translate_doc` reuse that traversal (https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/engine/src/image_cmds.rs#L24-L55; https://github.com/storytold/photocraft/blob/47f4abfed49e0d2f5b9277287b27dee632530ba4/crates/engine/src/image_cmds.rs#L109-L178).
+- [S] `crates/engine/src/image_cmds.rs:20-49` omits `sm.filter_mask.surface` from the shared mask-aware traversal.
+- [S] Image Size and `translate_doc` call the traversal with `masks=true`; crop clipping uses `masks=false`.
+- [S] `canvas_geom::refresh(Refresh::All)` re-renders Smart Objects; `smart_cmds::mask_mix` samples filter masks in document coordinates.
+- [O] Before the fix, the Image Size regression differed at the masked pixel: `[1.0, 0.0, 0.0, 1.0]` versus `[1.0, 0.0, 0.0, 0.6313726]` after disabling the mask.
+- [O] Post-fix contract tests cover Image Size resampling and Canvas Size translation before a later smart-object refresh.
 
 ## Prior-Art
 
-Coverage: current main source and merged PR #70 reviewed on 2026-10-06.
+Coverage: upstream main at `a96a621deea97d4b1ecd173b8b921587e33f3ca5` and merged PR #70 reviewed on 2026-10-06.
 PR #70 explicitly leaves Canvas Size and Crop smart-filter-mask translation unresolved (https://github.com/storytold/photocraft/pull/70).
 This is partial prior art, not a fix; Image Size resampling is also affected in current source.
 
@@ -50,29 +49,40 @@ Visit `sm.filter_mask.surface` with the mask flag when mask processing is enable
 
 ## Verification
 
-Status: source-traced; no geometry experiment executed.
-- Double an image containing a sharp half-image smart-filter mask and compare the expected mask boundary.
-- Translate the canvas, refresh the smart object, and verify the mask remains aligned with its content.
+Status: pre-fix defect reproduction and post-fix engine behavior verified on 2026-10-06.
+- [O] Before the fix, `cargo test --quiet -p photocraft-engine image_size_scales_smart_filter_mask_before_refresh` failed with the expected masked-pixel difference.
+- [O] After the fix, `cargo test --quiet -p photocraft-engine smart_filter_mask_before_refresh` → 2 passed.
+- [O] `cargo test --quiet -p photocraft-engine` → 596 passed, 9 ignored.
+- [O] `cargo clippy --quiet -p photocraft-engine --all-targets -- -D warnings` passed after both regressions.
+- [O] `cargo xtask layers` → 27 crates, no violations.
+- [O] `cargo xtask wasm` → all 21 package checks passed; existing unused-code warnings remain.
+- [O] `cargo fmt --all` passed.
 
 ## Publication-Blockers
 
-- Image Size and post-translation refresh behavior need runtime verification.
-- Implementation, focused checks, and the exact external draft remain unresolved.
+- The independent GPT-6.1 Sol/xhigh review is unavailable in this session; do not substitute another model.
+- Upstream issue, release, and discussion searches remain incomplete; PR #70 is the recorded prior-art check.
+- The exact PR draft and user approval remain outstanding.
 
 ## Next-Action
 
-Summary: Reproduce smart-filter mask misalignment
-Action: Resize and translate a disposable smart-object document with a sharp nonuniform filter mask.
-Done-When: Record transforms, mask bounds, refresh timing, and expected versus actual effect boundaries.
+Summary: Obtain GPT-6.1 review
+Action: Obtain the required independent GPT-6.1 Sol/xhigh review of the current source diff.
+Done-When: Record the review outcome and resolve every remaining publication blocker.
 
 ## Pull-Request-Implementation
 
 Branch: fix/transform-smart-filter-masks
-Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
-Scope: Include smart-filter masks in mask-aware canvas geometry traversal without double transforms.
-Commit: Pending.
-Push: Pending.
+Base: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
+Scope: Transform smart-filter masks during mask-aware canvas geometry and keep disabled masks aligned.
+Commit: `92df7cb2698c633e1d8cfdc34dca9587cfdeecd4` and `b91eafe95455ed523addd6d82b678981531c79ac`
+Push: `origin/fix/transform-smart-filter-masks`
 Checks:
-- Pending.
+- `cargo test --quiet -p photocraft-engine` → 596 passed, 9 ignored.
+- `cargo test --quiet -p photocraft-engine smart_filter_mask_before_refresh` → 2 passed.
+- `cargo clippy --quiet -p photocraft-engine --all-targets -- -D warnings` → passed.
+- `cargo xtask layers` → 27 crates, no violations.
+- `cargo xtask wasm` → all 21 package checks passed; existing unused-code warnings remain.
+- `cargo fmt --all` → passed.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.
