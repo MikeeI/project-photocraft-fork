@@ -9,7 +9,7 @@ Root-Cause-Confidence: High
 Finding-Category: UI
 Created: 2026-10-05
 Updated: 2026-10-06
-Source: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
+Source: `upstream/main@eaf92dcd9df738117991502de1dd16137dbcd3b2`
 
 ## Root-Cause
 
@@ -78,6 +78,7 @@ Downstream `Services` providers face a source-level API change; persistence and 
 
 Status: behavior and UI surface verified on 2026-10-06.
 
+- Rebased onto current `upstream/main@eaf92dcd9df738117991502de1dd16137dbcd3b2`; upstream had no changes in the eight touched paths.
 - Cancellation remains silent; a removed selected path produces a path-qualified error, status error, and notice.
 - An inspected offscreen snapshot rendered “Couldn't open unreadable.psd: Permission denied (os error 13)”.
 - No real native OS picker was driven; the regression used a selected path removed before reading.
@@ -98,10 +99,10 @@ Done-When: Record verified model/effort identity and actionable review; otherwis
 ## Pull-Request-Implementation
 
 Branch: fix/report-picker-read-errors
-Base: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
+Base: `upstream/main@eaf92dcd9df738117991502de1dd16137dbcd3b2`
 Scope: Distinguish native picker read failures from cancellation and propagate them to visible error reporting.
-Commit: `bf3ab0ec78201b572b8056c7fd5caf9971dfc77a`
-Push: `origin/fix/report-picker-read-errors`
+Commit: `69cdfbbccaaf7a70de759d6d422897013904ec4d`
+Push: `origin/fix/report-picker-read-errors` (explicit `--force-with-lease` update)
 Checks:
 - `cargo test --quiet --locked -p photocraft` → 36 passed.
 - `cargo test --quiet --locked -p photocraft-ui-egui` → 477 passed; 3 ignored.
