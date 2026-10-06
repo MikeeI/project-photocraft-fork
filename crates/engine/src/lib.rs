@@ -112,6 +112,15 @@ pub enum EngineError {
 
 pub type Result<T> = std::result::Result<T, EngineError>;
 
+/// How closing a dirty Edit Contents document handles its smart-object parent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SmartChildClosePolicy {
+    /// Preserve normal close behavior by saving the child back into its parent.
+    Commit,
+    /// Honor an explicit Don't Save decision without changing the parent.
+    Discard,
+}
+
 /// The pixels of a raster layer (typically one a command just created), as an error instead
 /// of a panic if the layer has none.
 pub(crate) fn pixels_mut(l: &mut photocraft_doc::Layer) -> Result<&mut photocraft_raster::Surface> {
@@ -310,11 +319,17 @@ impl Session {
         i
     }
 
+    /// Close using the standard smart-child save-back behavior.
     pub fn close(&mut self, index: usize) -> Result<Option<DocState>> {
+        self.close_with_policy(index, SmartChildClosePolicy::Commit)
+    }
+
+    /// Close one document with an explicit smart-child save-back policy.
+    pub fn close_with_policy(&mut self, index: usize, policy: SmartChildClosePolicy) -> Result<Option<DocState>> {
         if index >= self.docs.len() {
             return Ok(None);
         }
-        smart_cmds::on_close(self, index)?;
+        smart_cmds::on_close(self, index, policy)?;
         let d = self.docs.remove(index);
         self.active = if self.docs.is_empty() { None } else { Some(index.min(self.docs.len() - 1)) };
         Ok(Some(d))

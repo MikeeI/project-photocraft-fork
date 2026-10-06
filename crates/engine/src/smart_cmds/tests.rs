@@ -305,6 +305,30 @@ fn edit_contents_updates_the_parent() {
 }
 
 #[test]
+fn explicitly_discarded_smart_child_does_not_update_parent() {
+    let mut s = session(8);
+    paint(&mut s);
+    convert(&mut s);
+    let parent_pixels = flat(&s);
+    let parent_revision = s.documents()[0].revision;
+    let child = s.execute("layer.smartObjects.editContents", json!({})).unwrap()["document"].as_u64().unwrap() as usize;
+    s.edit("child edit", |doc, _| {
+        doc.layers[0].surface_mut().unwrap().fill_rect(Rect::new(0, 0, 4, 4), &[1.0, 0.0, 0.0, 1.0]);
+        Ok(())
+    })
+    .unwrap();
+    let child_id = s.documents()[child].doc.id;
+
+    s.execute("file.close", json!({"document": child, "discardedDocuments": [child_id.0]})).unwrap();
+
+    assert_eq!(s.documents().len(), 1);
+    assert!(s.smart_links.is_empty());
+    assert_eq!(s.documents()[0].revision, parent_revision);
+    s.set_active(0);
+    assert_eq!(flat(&s), parent_pixels);
+}
+
+#[test]
 fn failed_smart_child_close_preserves_document_and_link() {
     let mut s = session(8);
     paint(&mut s);

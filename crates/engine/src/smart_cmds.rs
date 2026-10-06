@@ -654,11 +654,11 @@ pub fn commit_child(s: &mut Session, index: usize) -> Result<bool> {
     Ok(true)
 }
 
-/// Called before a document closes: an edited Edit Contents document updates its parent.
-pub(crate) fn on_close(s: &mut Session, index: usize) -> Result<()> {
+/// A normal close saves a dirty Edit Contents document back; an explicit discard skips that transfer.
+pub(crate) fn on_close(s: &mut Session, index: usize, policy: crate::SmartChildClosePolicy) -> Result<()> {
     let Some(st) = s.docs.get(index) else { return Ok(()) };
     let id = st.doc.id;
-    if st.is_dirty() && s.smart_links.iter().any(|l| l.child == id) && !commit_child(s, index)? {
+    if policy == crate::SmartChildClosePolicy::Commit && st.is_dirty() && s.smart_links.iter().any(|l| l.child == id) && !commit_child(s, index)? {
         return Err(other("the smart object contents link is no longer available"));
     }
     s.smart_links.retain(|l| l.child != id && l.parent != id);

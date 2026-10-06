@@ -12,6 +12,12 @@ use crate::PhotocraftApp;
 
 const EXIT: &str = "file.exit";
 
+const CLOSE_COMMANDS: &[&str] = &["file.close", "file.closeAll", "file.closeOthers"];
+
+fn is_close_command(id: &str) -> bool {
+    CLOSE_COMMANDS.contains(&id)
+}
+
 /// An action waiting on the user, and the dirty documents still to ask about.
 pub struct Prompt {
     id: String,
@@ -19,6 +25,8 @@ pub struct Prompt {
     /// The document the command was aimed at (`document` param, else the active one), if it has one.
     target: Option<DocId>,
     docs: Vec<DocId>,
+    /// Documents the user explicitly chose not to save before replaying a close action.
+    discarded_documents: Vec<DocId>,
 }
 
 fn index_of(app: &PhotocraftApp, id: DocId) -> Option<usize> {
@@ -63,7 +71,7 @@ pub fn intercept(app: &mut PhotocraftApp, id: &str, params: &Value) -> bool {
     if docs.is_empty() {
         return false;
     }
-    let prompt = Prompt { id: id.to_string(), params: params.clone(), target, docs };
+    let prompt = Prompt { id: id.to_string(), params: params.clone(), target, docs, discarded_documents: Vec::new() };
     match &app.discard {
         None => app.discard = Some(prompt),
         // Quitting overrides whatever is pending: it covers every document, so nothing is lost.
@@ -97,21 +105,35 @@ fn advance(app: &mut PhotocraftApp, ctx: &egui::Context) {
     if !p.docs.is_empty() {
         return;
     }
-    let Some(Prompt { id, mut params, target, .. }) = app.discard.take() else { return };
+    let Some(Prompt { id, params, target, discarded_documents, .. }) = app.discard.take() else { return };
     if id == EXIT {
         app.allow_close = true;
         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         return;
     }
+    let mut params = params.as_object().cloned().unwrap_or_default();
     if let Some(target) = target {
         // The tab may have moved since the command was issued; aim it at the same document.
         let Some(i) = index_of(app, target) else { return };
-        params = json!({"document": i});
+        params.insert("document".into(), json!(i));
     }
-    if let Err(e) = crate::menus::invoke_unguarded(app, ctx, &id, params) {
+    if is_close_command(&id) && !discarded_documents.is_empty() {
+        params.insert("discardedDocuments".into(), json!(discarded_documents.iter().map(|doc| doc.0).collect::<Vec<_>>()));
+    }
+    if let Err(e) = crate::menus::invoke_unguarded(app, ctx, &id, Value::Object(params)) {
         app.ui.status = e;
         app.ui.status_error = true;
     }
+}
+
+/// Records the current explicit Don't Save answer before moving the parked action forward.
+fn discard_and_advance(app: &mut PhotocraftApp, ctx: &egui::Context, doc: DocId) {
+    if let Some(prompt) = app.discard.as_mut()
+        && is_close_command(&prompt.id)
+    {
+        prompt.discarded_documents.push(doc);
+    }
+    advance(app, ctx);
 }
 
 /// Saves `doc` in place; false when it is gone, the save failed or its file dialog was cancelled.
@@ -173,7 +195,9 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
     cancel |= modal.should_close();
     if cancel {
         app.discard = None;
-    } else if discard_it || (save_it && save(app, ctx, doc)) {
+    } else if discard_it {
+        discard_and_advance(app, ctx, doc);
+    } else if save_it && save(app, ctx, doc) {
         advance(app, ctx);
     }
 }
@@ -217,9 +241,40 @@ mod tests {
         crate::menus::invoke(&mut app, &ctx, "file.close", json!({"document": 1})).unwrap();
         assert_eq!(app.session.documents().len(), 2, "nothing closes before the user answers");
         assert!(app.discard.is_some());
-        advance(&mut app, &ctx);
+        let discarded_id = doc_id(&app, 1);
+        discard_and_advance(&mut app, &ctx, discarded_id);
         assert!(app.discard.is_none());
         assert_eq!(app.session.documents().len(), 1);
+    }
+
+    #[test]
+    fn dont_save_answer_survives_parked_close_others() {
+        let mut app = app_with_docs(2);
+        let ctx = egui::Context::default();
+        app.session.set_active(0);
+        app.run("layer.new.layer", json!({})).unwrap();
+        app.run("paint.stroke", json!({"points": [[5, 5, 1], [20, 20, 1]], "size": 8, "color": "#ff0000"})).unwrap();
+        app.run("layer.smartObjects.convertToSmartObject", json!({})).unwrap();
+        let parent_id = doc_id(&app, 0);
+        let parent_revision = app.session.documents()[0].revision;
+        let parent_pixels = photocraft_compose::flatten(&app.session.documents()[0].doc).px;
+        app.session.set_active(0);
+        app.session.active_mut().unwrap().saved_revision = parent_revision;
+
+        let child = app.run("layer.smartObjects.editContents", json!({})).unwrap()["document"].as_u64().unwrap() as usize;
+        let child_id = doc_id(&app, child);
+        app.run("layer.new.layer", json!({})).unwrap();
+        app.run("paint.stroke", json!({"points": [[4, 4, 1], [22, 22, 1]], "size": 5, "color": "#00ff00"})).unwrap();
+
+        crate::menus::invoke(&mut app, &ctx, "file.closeOthers", json!({"document": 0})).unwrap();
+        assert_eq!(app.discard.as_ref().map(|prompt| prompt.docs.as_slice()), Some(&[child_id][..]));
+        discard_and_advance(&mut app, &ctx, child_id);
+
+        assert_eq!(app.session.documents().len(), 1);
+        assert_eq!(app.session.documents()[0].doc.id, parent_id);
+        assert_eq!(app.session.documents()[0].revision, parent_revision);
+        assert_eq!(photocraft_compose::flatten(&app.session.documents()[0].doc).px, parent_pixels);
+        assert!(app.session.smart_links.is_empty());
     }
 
     #[test]
@@ -241,9 +296,11 @@ mod tests {
         make_dirty(&mut app, 0);
         make_dirty(&mut app, 2);
         crate::menus::invoke(&mut app, &ctx, "file.closeAll", json!({})).unwrap();
-        advance(&mut app, &ctx);
+        let first = app.discard.as_ref().unwrap().docs[0];
+        discard_and_advance(&mut app, &ctx, first);
         assert_eq!(app.session.documents().len(), 3, "still waiting on the second document");
-        advance(&mut app, &ctx);
+        let second = app.discard.as_ref().unwrap().docs[0];
+        discard_and_advance(&mut app, &ctx, second);
         assert!(app.session.documents().is_empty());
     }
 
@@ -256,7 +313,7 @@ mod tests {
         crate::menus::invoke(&mut app, &ctx, "file.close", json!({"document": 2})).unwrap();
         // Another document closes while the prompt is up, shifting the tab to index 1.
         app.run("file.close", json!({"document": 0})).unwrap();
-        advance(&mut app, &ctx);
+        discard_and_advance(&mut app, &ctx, doomed);
         assert_eq!(app.session.documents().len(), 1);
         assert!(index_of(&app, doomed).is_none());
     }

@@ -18,7 +18,7 @@ use photocraft_raster::{Surface, from_rgba_into};
 use serde_json::{Value, json};
 
 use crate::commands::{CommandSpec, layer_param};
-use crate::{EngineError, Result, Session};
+use crate::{EngineError, Result, Session, SmartChildClosePolicy};
 
 // ---------- predicates ----------
 
@@ -203,15 +203,36 @@ pub(crate) fn flattened(doc: &Document, fmt: PixelFormat) -> Surface {
 
 // ---------- close / revert / save a copy / open as ----------
 
-fn close_all(s: &mut Session) -> Result<Value> {
+pub(crate) fn discarded_document_ids(p: &Value, command: &str) -> Result<Vec<u64>> {
+    let Some(ids) = p.get("discardedDocuments") else { return Ok(Vec::new()) };
+    let Some(ids) = ids.as_array() else {
+        return Err(EngineError::BadParams { cmd: command.into(), msg: "`discardedDocuments` must be an array of document IDs".into() });
+    };
+    ids.iter()
+        .map(|id| {
+            id.as_u64().ok_or_else(|| EngineError::BadParams { cmd: command.into(), msg: "`discardedDocuments` must contain unsigned document IDs".into() })
+        })
+        .collect()
+}
+
+pub(crate) fn smart_child_close_policy(s: &Session, index: usize, discarded_ids: &[u64]) -> Result<SmartChildClosePolicy> {
+    let id = s.documents().get(index).ok_or(EngineError::NoDocument)?.doc.id.0;
+    Ok(if discarded_ids.contains(&id) { SmartChildClosePolicy::Discard } else { SmartChildClosePolicy::Commit })
+}
+
+fn close_all(s: &mut Session, p: &Value) -> Result<Value> {
+    let discarded_ids = discarded_document_ids(p, "file.closeAll")?;
     let n = s.documents().len();
     while !s.documents().is_empty() {
-        s.close(s.documents().len() - 1)?.ok_or(EngineError::NoDocument)?;
+        let index = s.documents().len() - 1;
+        let policy = smart_child_close_policy(s, index, &discarded_ids)?;
+        s.close_with_policy(index, policy)?.ok_or(EngineError::NoDocument)?;
     }
     Ok(json!({"closed": n}))
 }
 
 fn close_others(s: &mut Session, p: &Value) -> Result<Value> {
+    let discarded_ids = discarded_document_ids(p, "file.closeOthers")?;
     let keep = p.get("document").and_then(Value::as_u64).map(|v| v as usize).or(s.active_index()).ok_or(EngineError::NoDocument)?;
     if keep >= s.documents().len() {
         return Err(EngineError::BadParams { cmd: "file.closeOthers".into(), msg: format!("no document {keep}") });
@@ -219,7 +240,8 @@ fn close_others(s: &mut Session, p: &Value) -> Result<Value> {
     let n = s.documents().len() - 1;
     for i in (0..s.documents().len()).rev() {
         if i != keep {
-            s.close(i)?.ok_or(EngineError::NoDocument)?;
+            let policy = smart_child_close_policy(s, i, &discarded_ids)?;
+            s.close_with_policy(i, policy)?.ok_or(EngineError::NoDocument)?;
         }
     }
     s.set_active(0);
@@ -998,13 +1020,21 @@ pub fn specs() -> Vec<CommandSpec> {
         };
     }
     vec![
-        spec!("file.closeAll", "Close All", &["File"], Some("Cmd+Alt+W"), "{}", has_doc, |s, _| close_all(s)),
+        spec!(
+            "file.closeAll",
+            "Close All",
+            &["File"],
+            Some("Cmd+Alt+W"),
+            r##"{"discardedDocuments":[documentId,…]? (IDs answered Don't Save)}"##,
+            has_doc,
+            |s, p| close_all(s, p)
+        ),
         spec!(
             "file.closeOthers",
             "Close Others",
             &["File"],
             Some("Cmd+Alt+P"),
-            r##"{"document":index? (the one to keep; default active)}"##,
+            r##"{"document":index? (the one to keep; default active),"discardedDocuments":[documentId,…]? (IDs answered Don't Save)}"##,
             has_doc,
             close_others
         ),

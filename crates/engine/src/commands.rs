@@ -259,11 +259,21 @@ fn build() -> Vec<CommandSpec> {
                 Ok(json!({ "document": i }))
             }
         ),
-        cmd!("file.close", "Close", ["File"], Some("Cmd+W"), r##"{"document":index?}"##, has_doc, |s, p| {
-            let i = p.get("document").and_then(Value::as_u64).map(|v| v as usize).or(s.active_index()).ok_or(EngineError::NoDocument)?;
-            s.close(i)?.ok_or(EngineError::NoDocument)?;
-            Ok(Value::Null)
-        }),
+        cmd!(
+            "file.close",
+            "Close",
+            ["File"],
+            Some("Cmd+W"),
+            r##"{"document":index?,"discardedDocuments":[documentId,…]? (IDs answered Don't Save)}"##,
+            has_doc,
+            |s, p| {
+                let discarded_ids = crate::file_cmds::discarded_document_ids(p, "file.close")?;
+                let i = p.get("document").and_then(Value::as_u64).map(|v| v as usize).or(s.active_index()).ok_or(EngineError::NoDocument)?;
+                let policy = crate::file_cmds::smart_child_close_policy(s, i, &discarded_ids)?;
+                s.close_with_policy(i, policy)?.ok_or(EngineError::NoDocument)?;
+                Ok(Value::Null)
+            }
+        ),
         // Edit
         cmd!("edit.undo", "Undo", ["Edit"], Some("Cmd+Z"), "{}", can_undo, |s, _| Ok(json!(s.undo()))),
         cmd!("edit.redo", "Redo", ["Edit"], Some("Cmd+Shift+Z"), "{}", can_redo, |s, _| Ok(json!(s.redo()))),
