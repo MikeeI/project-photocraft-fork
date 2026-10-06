@@ -84,6 +84,30 @@ fn define_apply_visibility_and_text() {
 }
 
 #[test]
+fn fresh_id_load_remaps_variable_targets_before_applying_a_data_set() {
+    let (mut source, photo, badge, _) = session();
+    source.execute("image.variables.define", json!({"defs": [{"name": "showBadge", "layer": badge.0, "type": "visibility"}]})).unwrap();
+    source
+        .execute(
+            "image.variables.dataSets",
+            json!({"dataSets": [{"name": "hide", "values": [{"variable": "showBadge", "kind": "visibility", "value": false}]}]}),
+        )
+        .unwrap();
+    let bytes = photocraft_format::save_to_bytes(doc(&source), &photocraft_format::SaveOptions::default()).unwrap();
+    let loaded_doc = photocraft_format::load_from_bytes_with(&bytes, &photocraft_format::LoadOptions { preserve_ids: false, ..Default::default() }).unwrap();
+    let loaded_photo = loaded_doc.layers.iter().find(|layer| layer.name == "photo").unwrap().id;
+    let loaded_badge = loaded_doc.layers.iter().find(|layer| layer.name == "badge").unwrap().id;
+    assert_ne!(loaded_photo, photo);
+    assert_ne!(loaded_badge, badge);
+
+    let mut loaded = Session::new();
+    loaded.add_document(loaded_doc, None);
+    loaded.execute("image.applyDataSet", json!({"name": "hide"})).unwrap();
+    assert!(!doc(&loaded).layer(loaded_badge).unwrap().visible);
+    assert!(doc(&loaded).layer(loaded_photo).unwrap().visible);
+}
+
+#[test]
 fn bad_params_are_errors() {
     let (mut s, _p, badge, _t) = session();
     assert!(s.execute("image.variables.define", json!({"defs": [{"name": "x", "layer": 999999, "type": "visibility"}]})).is_err());

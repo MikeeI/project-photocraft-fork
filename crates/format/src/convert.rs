@@ -1,6 +1,7 @@
 //! Document ⇄ manifest conversion. Binary data is routed through a
 //! [`Sink`] (save) or [`Fetch`] (load) keyed by BLAKE3 hash.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use photocraft_color::{PixelFormat, SampleType};
@@ -271,8 +272,10 @@ pub(crate) struct Loader<'a> {
     pub fetch: &'a mut dyn Fetch,
     pub preserve_ids: bool,
     pub max_id: u64,
-    /// Stored layer id → loaded id (differs when ids are remapped), for layer comp states.
+    /// Stored layer id → loaded id (differs when ids are remapped), for document references.
     pub id_map: std::collections::HashMap<u64, LayerId>,
+    /// Original variable target ids reserved during remapping.
+    pub reserved_variable_targets: HashSet<u64>,
 }
 
 impl Loader<'_> {
@@ -315,7 +318,12 @@ impl Loader<'_> {
             self.max_id = self.max_id.max(raw);
             LayerId(raw)
         } else {
-            LayerId::fresh()
+            loop {
+                let id = LayerId::fresh();
+                if !self.reserved_variable_targets.contains(&id.0) {
+                    break id;
+                }
+            }
         };
         self.id_map.insert(raw, id);
         id
@@ -462,7 +470,18 @@ impl Loader<'_> {
     }
 
     pub(crate) fn document(&mut self, m: &DocM) -> Result<Document> {
+        if !self.preserve_ids {
+            // Reserve variable target ids before remapping layers so dangling references cannot alias fresh ids.
+            self.reserved_variable_targets.extend(m.variables.defs.iter().map(|def| def.layer.0));
+        }
         let layers = m.layers.iter().map(|l| self.layer(l, 0)).collect::<Result<Vec<_>>>()?;
+        let mut variables = m.variables.clone();
+        // Unmapped ids stay unchanged so genuinely dangling references are not redirected.
+        for def in &mut variables.defs {
+            if let Some(id) = self.id_map.get(&def.layer.0) {
+                def.layer = *id;
+            }
+        }
         let mut channels = Vec::with_capacity(m.channels.len());
         for c in &m.channels {
             channels.push(self.channel(c)?);
@@ -523,7 +542,7 @@ impl Loader<'_> {
             patterns,
             color_table: m.color_table.clone(),
             duotone: m.duotone.clone(),
-            variables: m.variables.clone(),
+            variables,
             timeline: m.timeline.clone(),
             layer_comps,
             last_applied_comp: m.last_applied_comp,
