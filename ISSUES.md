@@ -42,7 +42,7 @@ Next finding ID: ISSUE-039
 | [ISSUE-033](issues/ISSUE-033.md) | flat export: omitted channels lack document-level loss warnings | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Obtain GPT-6.1 review | Not published. |
 | [ISSUE-035](issues/ISSUE-035.md) | effect cache: surface identity omits mask default pixels | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream cache review | https://github.com/storytold/photocraft/pull/105 |
 | [ISSUE-036](issues/ISSUE-036.md) | group composition: opacity mixes straight-alpha colors directly | Submitted | Pull-Request-Implementation | New-pull-request | Medium | Await upstream group coverage review | https://github.com/storytold/photocraft/pull/108 |
-| [ISSUE-038](issues/ISSUE-038.md) | file picker: read failures collapse into cancellation | Investigating | Pull-Request-Implementation | New-pull-request | Medium | Reproduce silent picker read failure | Not published. |
+| [ISSUE-038](issues/ISSUE-038.md) | file picker: read failures collapse into cancellation | Implementing | Pull-Request-Implementation | New-pull-request | Medium | Obtain GPT-6.1 review | Not published. |
 
 ## Archived-Findings
 

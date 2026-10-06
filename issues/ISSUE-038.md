@@ -1,6 +1,6 @@
 # ISSUE-038 — file picker: read failures collapse into cancellation
 
-State: Investigating
+State: Implementing
 Authorized-Work: Pull-Request-Implementation
 Publication-Target: New-pull-request
 External-Reference: Not published.
@@ -8,8 +8,8 @@ Contribution-Priority: Medium
 Root-Cause-Confidence: High
 Finding-Category: UI
 Created: 2026-10-05
-Updated: 2026-10-05
-Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Updated: 2026-10-06
+Source: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
 
 ## Root-Cause
 
@@ -18,27 +18,48 @@ Review mapping: `E25`, VALID; severity Medium.
 
 ## Reach-and-Impact
 
-Trigger: select a file that is unreadable or disappears before the picker reads it.
-[S] The UI receives no file and therefore shows neither the promised open error nor a notice.
-No native-dialog read-failure experiment was executed.
+Trigger: select a native file that disappears or cannot be read before `std::fs::read`.
+[S] The upstream callback used absence for both user cancellation and read failure.
+The UI consequently treated a selected-but-unreadable file as cancellation, not an open error.
+Browser picks remain distinct: they arrive later through the inbox.
+
+## Bug-Reproduction
+
+[O] Ubuntu 24.04.5 / Rust 1.99.0: a temporary pre-fix UI test removed a selected path before read.
+The original callback returned no file; `status_error` stayed false and `notices` stayed empty.
+The test was synthetic, not an OS dialog; its one-off command was not retained.
 
 ## Evidence
 
-- [S] `crates/ui-egui/src/file_open.rs:1-5` promises visible status and notice reporting for failed opens.
-- [S] `apps/photocraft/src/services.rs:109-112` uses `std::fs::read(&path).ok()?` after selection.
-- [S] `crates/ui-egui/src/lib.rs:483-488` only reports errors when selected bytes were returned.
-- [S] `crates/ui-egui/src/menus.rs:212-218` reports successful command completion after the silent path.
+- [S] Upstream `apps/photocraft/src/services.rs` (`Services::native`) used `std::fs::read(&path).ok()?` after selection.
+- [S] `open_dialog_file` in `crates/ui-egui/src/lib.rs` ignores absence; `open_failed` in `file_open.rs` reports errors.
+- [O] `picker_cancellation_stays_silent_and_read_failures_are_reported` verifies `Ok(None)` stays silent.
+- [O] The same test reads a removed selected path through `read_picked_file` and observes an error status and notice.
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching root cause.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved pending a native-dialog failure reproduction and service-contract review.
+Coverage: Local open records and upstream GitHub issues/PRs searched 2026-10-06; no exact match.
+Terms: picker/read failure, `rfd FileDialog`, `pick_open`, and post-selection disappearance.
+
+- [S] PR #63 added `open_failed` for path opens but retained native `.ok()?`; related reporter work, not a duplicate.
+  https://github.com/storytold/photocraft/pull/63
+- [S] PR #23 and issue #5 concern Open Recent, not selected-file read errors.
+  https://github.com/storytold/photocraft/pull/23
+  https://github.com/storytold/photocraft/issues/5
+- [S] v0.2.0 release notes have no native picker read-failure fix.
+  https://github.com/storytold/photocraft/releases/tag/v0.2.0
+- [O] GitHub Discussions returned 404.
+  https://github.com/storytold/photocraft/discussions
+- [O] Public-index searches found no PhotoCraft result for linked Discord; server content was not directly searchable.
+  https://discord.gg/artcraft
+- [S] Local ISSUE-016 concerns script-event save-path retargeting, a different root cause.
+
+Contribution fit: distinct UI error-propagation defect; a bounded fix reuses the existing reporter.
 
 ## Proposed-Change
 
-Distinguish cancellation from read failure with a fallible picker contract or separate path selection and reading.
-Pass actual read failures to the existing open-error reporting owner.
+Return native picker read failures as errors while preserving `Ok(None)` for cancellation.
+Route File Open errors through `open_failed`; keep browser inbox delivery asynchronous.
 
 ## Scope-and-Constraints
 
@@ -48,34 +69,45 @@ Pass actual read failures to the existing open-error reporting owner.
 
 ## API-and-Compatibility
 
-Picker providers and consumers must migrate together if their return type changes to `Result<Option<_>, _>`.
-Existing cancellation behavior remains an intentional non-error result.
+Public `PickOpenFn`: `Box<dyn FnMut() -> Result<Option<(String, Vec<u8>)>, String>>`.
+All in-repository providers and consumers were migrated.
+Cancellation remains `Ok(None)`; web inbox delivery remains asynchronous.
+Downstream `Services` providers face a source-level API change; persistence and control protocol are unchanged.
 
 ## Verification
 
-Status: source-traced; no native-dialog experiment executed.
-- Select an unreadable or removed disposable file and require a concrete status/notice error.
-- Cancel the picker normally and verify no error is shown.
+Status: behavior and UI surface verified on 2026-10-06.
+
+- Cancellation remains silent; a removed selected path produces a path-qualified error, status error, and notice.
+- An inspected offscreen snapshot rendered “Couldn't open unreadable.psd: Permission denied (os error 13)”.
+- No real native OS picker was driven; the regression used a selected path removed before reading.
+- Dependency-inclusive strict Clippy hit warnings in unchanged `photocraft-cms` and `photocraft-engine`; package-only `--no-deps` strict checks passed.
 
 ## Publication-Blockers
 
-- Native-dialog failure and genuine-cancellation behavior need verification.
-- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
+- Required independent GPT-6.1 Sol/xhigh review is unavailable in this runtime; GPT-6 Luna medium is not a substitute.
+- The exact upstream PR draft is not finalized, and no pull request has been opened.
+- Do not publish until the exact current target and full draft are shown and the user approves them.
 
 ## Next-Action
 
-Summary: Reproduce silent picker read failure
-Action: Exercise native File Open with a selected file that cannot be read and compare genuine cancellation.
-Done-When: Record selection outcome, read error, command result, status, and visible notice behavior.
+Summary: Obtain GPT-6.1 review
+Action: Obtain the required independent GPT-6.1 Sol review at xhigh of the pushed commit and regression evidence.
+Done-When: Record verified model/effort identity and actionable review; otherwise retain the publication blocker.
 
 ## Pull-Request-Implementation
 
 Branch: fix/report-picker-read-errors
-Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Base: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
 Scope: Distinguish native picker read failures from cancellation and propagate them to visible error reporting.
-Commit: Pending.
-Push: Pending.
+Commit: `bf3ab0ec78201b572b8056c7fd5caf9971dfc77a`
+Push: `origin/fix/report-picker-read-errors`
 Checks:
-- Pending.
+- `cargo test --quiet --locked -p photocraft` → 36 passed.
+- `cargo test --quiet --locked -p photocraft-ui-egui` → 477 passed; 3 ignored.
+- Strict package Clippy (`--no-deps`, `-D warnings`) passed for `photocraft`, `photocraft-ui-egui`, and wasm `photocraft-web`.
+- `cargo check --target wasm32-unknown-unknown --quiet --locked -p photocraft-web` → passed.
+- `cargo xtask layers` → 27 crates, no violations.
+- `cargo xtask wasm` → all 21 wasm-compatible crates passed.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.
