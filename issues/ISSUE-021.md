@@ -8,8 +8,8 @@ Contribution-Priority: High
 Root-Cause-Confidence: High
 Finding-Category: Reliability
 Created: 2026-10-05
-Updated: 2026-10-05
-Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Updated: 2026-10-06
+Source: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
 
 ## Root-Cause
 
@@ -20,21 +20,23 @@ Review mapping: `E8`, VALID; severity High.
 
 Trigger: edit a smart-object child, then delete or rasterize its original parent layer before closing the child.
 [S] The promised parent update can fail while `file.close` still reports success and removes the only edited child.
-No command sequence or actual data loss was executed.
+[O] Controlled engine and desktop scenarios verified the corrected error path; no irreversible user data loss was induced.
 
 ## Evidence
 
-- [S] `crates/engine/src/smart_cmds.rs:638-649` fails if the linked layer is absent or no longer smart.
-- [S] `crates/engine/src/smart_cmds.rs:656-663` ignores `commit_child` errors and removes the link.
-- [S] `crates/engine/src/lib.rs:288-295` unconditionally removes the document after `on_close`.
-- [S] `crates/engine/src/commands.rs:254-257` reports successful close; `smart_cmds.rs:829-839` promises save-back.
+- [S] At the recorded base, `smart_cmds::on_close` ignored `commit_child` errors before `Session::close` removed documents.
+- [S] Single, batch, channel, and headless close callers ignored the old `Session::close` result.
+- [O] The new engine regression failed before the fix because `file.close` returned success after the missing-parent-layer commit failed.
+- [O] After the fix, live `file.close` returned `no such layer LayerId(6)` and kept the dirty linked child open.
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching root cause.
-This is error propagation, distinct from stale close prompts in `ISSUE-020` and ignored discard in `ISSUE-025`.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved pending a command-level failure reproduction.
+GitHub issue searches on 2026-10-06 for `"smart object" close save` and `"Edit Contents" close` returned no matches.
+The upstream pull-request search for `"smart object" close child` and commit search for `smart object close save-back` returned none.
+`ISSUE-020` owns stale close-prompt selection; `ISSUE-025` owns explicit discard despite successful save-back.
+Those causes are distinct from this finding's ignored required save-back error.
+Gaps: Upstream discussions and release notes were not searched.
+Contribution fit: Keep this failed-save-back root cause separate and stack ISSUE-025 on its public close API.
 
 ## Proposed-Change
 
@@ -49,34 +51,39 @@ Migrate single and batch close callers to the resulting error contract.
 
 ## API-and-Compatibility
 
-`Session::close` and callers must distinguish an invalid index, a failed required save-back, and successful removal.
-Coordinate explicit discard policy with `ISSUE-025` without weakening the failure path.
+`Session::close` now returns `Result<Option<DocState>>`; callers must propagate save-back errors.
+`ISSUE-025` must carry explicit discard policy through this failure-propagating close boundary.
 
 ## Verification
 
-Status: source-traced; no command-level reproduction executed.
-- Remove the linked smart layer after child editing and attempt `file.close` on the child.
-- Require a visible error, unchanged parent, and an open, dirty, linked child.
+Status: engine and live UI failure paths verified on 2026-10-06.
+- [O] Before the fix, `failed_smart_child_close_preserves_document_and_link` failed because `file.close` succeeded.
+- [O] After the fix, that engine test verifies error propagation, unchanged child pixels and parent revision, and retained link.
+- [O] `file.closeAll` returns the same save-back error without removing the failed child.
+- [O] Live UI screenshot `/tmp/photocraft-issue021-live-ccy1IX/output/issue021-close-failure.png` shows the error and both open documents.
+- [O] Live partial `file.closeOthers` failure preserved parent and child tabs and resynchronized two views; screenshot `/tmp/photocraft-issue021-live-ccy1IX/output/issue021-partial-close-error.png`.
 
 ## Publication-Blockers
 
-- Failed-save-back close and batch-close propagation evidence are missing.
-- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
+- The independent GPT-6.1 Sol/xhigh review is unavailable in this session; do not substitute another model.
+- The exact PR draft and user approval remain outstanding.
+- `ISSUE-025` shares the close API boundary and must remain a separate, explicitly stacked contribution.
 
 ## Next-Action
 
-Summary: Reproduce failed smart-child close
-Action: Attempt to close an edited smart child after replacing its linked parent layer in a disposable session.
-Done-When: Record the error, parent state, child contents, link retention, and document membership.
+Summary: Obtain GPT-6.1 review
+Action: Obtain the required independent GPT-6.1 Sol/xhigh review of the source diff.
+Done-When: Record the review outcome and resolve every required source correction.
 
 ## Pull-Request-Implementation
 
 Branch: fix/preserve-failed-smart-child
-Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Base: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
 Scope: Propagate required smart-child save-back failures and preserve child contents and links.
-Commit: Pending.
-Push: Pending.
+Commit: `71e724e32fc1e882a718b20264f37fa1d87b592a`
+Push: `origin/fix/preserve-failed-smart-child`
 Checks:
-- Pending.
+- `cargo test --quiet -p photocraft-engine -p photocraft-automation -p photocraft-ui-egui` → 1121 passed, 12 ignored.
+- Affected Clippy, formatting, and `cargo xtask layers` passed.
 
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.

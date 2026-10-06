@@ -8,8 +8,8 @@ Contribution-Priority: High
 Root-Cause-Confidence: High
 Finding-Category: Reliability
 Created: 2026-10-05
-Updated: 2026-10-05
-Source: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Updated: 2026-10-06
+Source: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
 
 ## Root-Cause
 
@@ -20,21 +20,25 @@ Review mapping: `E2`, VALID; severity Critical.
 
 Trigger: a transient recovery read failure, or another crash after recovery but before the next successful autosave.
 [S] Failed recovery loses its retained input; successful recovery initially exists only in memory after deletion.
-No crash sequence or actual loss was executed.
+No crash or irreversible loss was induced; the restart scenario used only a disposable config directory.
 
 ## Evidence
 
-- [S] `apps/photocraft/src/services.rs:161-166` conditions document adoption on success but deletes unconditionally.
-- [S] `crates/format/src/autosave.rs:176-184` removes the bundle directory and sidecar.
-- [S] `crates/ui-egui/src/prefs_ui.rs:108-115` installs recovered documents only after the service returns.
-- [S] `crates/ui-egui/src/prefs_ui.rs:204-212` initially defers autosave for a full interval.
+- [S] `apps/photocraft/src/services.rs::recover` deleted each entry after attempting its load, including failed loads.
+- [S] `crates/format/src/autosave.rs::Autosaver::discard` removes the recovery bundle and sidecar.
+- [S] `crates/ui-egui/src/prefs_ui.rs::load` adopts only returned documents; the old service discarded their source first.
+- [S] `crates/ui-egui/src/prefs_ui.rs::autosave` records a revision when the callback accepts a snapshot, not when it persists.
 
 ## Prior-Art
 
-Coverage: local ledger checked on 2026-10-05; no matching root cause.
-`ISSUE-017` owns autosave completion acknowledgment, not deletion during recovery admission.
-Gaps: upstream issues, PRs, discussions, and releases not searched.
-Contribution fit: unresolved pending recovery reproduction and upstream ownership search.
+Issue searches on 2026-10-06 (`autosave recovery`, `recovery discard`, `"crash recovery"`) found no direct match.
+PR searches for `autosave recovery`, `recovery load`, and `autosave key` found no matching fix.
+- https://github.com/storytold/photocraft/pull/114 covers document-ID collisions, not recovery ownership.
+- https://github.com/storytold/photocraft/pull/230 covers atomic replacement, not recovery-entry cleanup.
+- https://github.com/storytold/photocraft/pull/267 covers portable paths, not recovery-entry cleanup.
+No matching commit was found.
+`ISSUE-017` owns asynchronous save acknowledgment and changes the same callback; its API adds document-instance identity.
+Its callback is `(doc, document_instance_id, revision, path)`; this branch instead carries `(doc, revision, path, recovery_key)`.
 
 ## Proposed-Change
 
@@ -50,29 +54,36 @@ Track the original recovery entry independently from any newly assigned runtime 
 
 ## Verification
 
-Status: source-traced; no recovery or crash experiment executed.
-- Force a recovery load failure and verify the bundle and sidecar remain available.
-- Recover successfully, terminate before replacement autosave, and recover the same changes again.
+Status: implementation and restart behavior verified on 2026-10-06.
+- [O] A dirty 8×8 document persisted as `doc-1` and was recovered on two isolated restarts.
+- [O] Both launches still reported `doc-901: manifest JSON: expected ident at line 1 column 2`.
+- [O] Screenshot `/tmp/photocraft-issue015-visual-6f21e9b3/output/issue015-recovery-restart-one.png` shows the recovered tab and error notice.
 
 ## Publication-Blockers
 
-- Failed-load and repeated-crash preservation evidence is missing.
-- Upstream prior art, verified implementation, required review evidence, and the exact draft remain unresolved.
+- The independent GPT-6.1 Sol/xhigh review is unavailable in this session; do not substitute another model.
+- The exact PR draft and user approval remain outstanding.
+- Coordinate the overlapping autosave callback contract with `ISSUE-017` before choosing the contribution branch base.
 
 ## Next-Action
 
-Summary: Reproduce recovery snapshot deletion
-Action: Trace one disposable recovery entry through a failed load and an immediate post-recovery restart.
-Done-When: Record entry existence, load results, session adoption, and whether the second launch can recover it.
+Summary: Obtain GPT-6.1 review
+Action: Obtain the required independent GPT-6.1 Sol/xhigh review of the current source diff.
+Done-When: Record the exact review outcome and close every resulting blocker.
 
 ## Pull-Request-Implementation
 
 Branch: fix/retain-recovery-snapshots
-Base: `upstream/main@ff53be714db50b8b190381eb0a9ec2b1ffab6715`
+Base: `upstream/main@a96a621deea97d4b1ecd173b8b921587e33f3ca5`
 Scope: Retain recovery input until successful replacement or explicit discard owns deletion.
-Commit: Pending.
-Push: Pending.
+Commit: `0a665dd89dc3debed3b5aa46732fe34f842dc599`
+Push: `origin/fix/retain-recovery-snapshots`
 Checks:
-- Pending.
-
+- `cargo test --quiet -p photocraft-format` → 70 passed.
+- `cargo test --quiet -p photocraft` → 36 passed.
+- `cargo test --quiet -p photocraft-ui-egui` → 481 passed, 3 ignored.
+- `cargo clippy --quiet -p photocraft-format -p photocraft-ui-egui -p photocraft --all-targets -- -D warnings` → passed.
+- `cargo xtask layers` → 27 crates, no violations.
+- `cargo xtask wasm` → all 21 package checks passed; baseline unused-code warnings remain.
+- `cargo fmt --all -- --check && git diff --check` → passed.
 The user authorized implementation and publication of a verified fix PR on 2026-10-05.
