@@ -78,16 +78,19 @@ Downstream `Services` providers face a source-level API change; persistence and 
 
 Status: behavior and UI surface verified on 2026-10-06.
 
-- Rebased onto current `upstream/main@eaf92dcd9df738117991502de1dd16137dbcd3b2`; upstream had no changes in the eight touched paths.
+- Rebased onto current `upstream/main@eaf92dcd9df738117991502de1dd16137dbcd3b2`.
+  The eight touched paths had no intervening changes.
 - Cancellation remains silent; a removed selected path produces a path-qualified error, status error, and notice.
-- An inspected offscreen snapshot rendered “Couldn't open unreadable.psd: Permission denied (os error 13)”.
+- Inspected `project/evidence/issue-038-before.png` and `project/evidence/issue-038-after.png`.
+  The after image shows the read-error notice with unchanged layout.
 - No real native OS picker was driven; the regression used a selected path removed before reading.
-- Dependency-inclusive strict Clippy hit warnings in unchanged `photocraft-cms` and `photocraft-engine`; package-only `--no-deps` strict checks passed.
+- Default strict Clippy hit unchanged dependency warnings: `PAR_MIN_PIXELS`, `PAR_CHUNK_PIXELS`, and `OPENABLE`.
 
 ## Publication-Blockers
 
 - Required independent GPT-6.1 Sol/xhigh review is unavailable in this runtime; GPT-6 Luna medium is not a substitute.
 - The exact upstream PR draft is not finalized, and no pull request has been opened.
+- Before/after screenshots are local evidence and must be attached when an approved PR is created.
 - Do not publish until the exact current target and full draft are shown and the user approves them.
 
 ## Next-Action
@@ -106,7 +109,7 @@ Push: `origin/fix/report-picker-read-errors` (explicit `--force-with-lease` upda
 Checks:
 - `cargo test --quiet --locked -p photocraft` → 36 passed.
 - `cargo test --quiet --locked -p photocraft-ui-egui` → 477 passed; 3 ignored.
-- Strict package Clippy (`--no-deps`, `-D warnings`) passed for `photocraft`, `photocraft-ui-egui`, and wasm `photocraft-web`.
+- Strict Clippy (`--no-deps -D warnings`) passed for `photocraft`, `photocraft-ui-egui`, and wasm `photocraft-web`.
 - `cargo check --target wasm32-unknown-unknown --quiet --locked -p photocraft-web` → passed.
 - `cargo xtask layers` → 27 crates, no violations.
 - `cargo xtask wasm` → all 21 wasm-compatible crates passed.
