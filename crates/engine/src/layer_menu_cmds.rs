@@ -3,6 +3,7 @@
 //! Options / Global Light / Create Layer / Scale Effects, Layer Content Options, and exporting
 //! just the active layer (Quick Export as PNG, Export As).
 
+use photocraft_algo::resample::{crop_surface, translate_surface};
 use photocraft_algo::selection::Region;
 use photocraft_color::{BlendMode, ColorMode};
 use photocraft_doc::{BlendIf, BlendRange, Document, Effect, Layer, LayerContent, LayerId, LayerMask, SmartSource, StackMode};
@@ -648,6 +649,13 @@ fn content_options(s: &mut Session, _: &Value) -> Result<Value> {
 /// one-layer document — what Export As does for a layer.
 pub fn layer_document(doc: &Document, id: LayerId) -> Result<Document> {
     let l = doc.layer(id).ok_or(EngineError::NoLayer(id))?;
+    let indexed_table = if doc.mode == ColorMode::Indexed {
+        let table = doc.color_table.clone().ok_or_else(|| other("Indexed Color document has no color table"))?;
+        crate::mode_cmds::validate_indexed_table(&table)?;
+        Some(table)
+    } else {
+        None
+    };
     let mut alone = l.clone();
     alone.visible = true;
     alone.blend = if alone.is_group() { BlendMode::PassThrough } else { BlendMode::Normal };
@@ -672,6 +680,7 @@ pub fn layer_document(doc: &Document, id: LayerId) -> Result<Document> {
     let mut out = Document::new(l.name.clone(), photocraft_doc::Size::new(b.width(), b.height()), doc.mode, doc.depth);
     out.resolution_dpi = doc.resolution_dpi;
     out.icc_profile = doc.icc_profile.clone();
+    out.color_table = indexed_table.clone();
     let mut surf = Surface::new(fmt);
     let rows: Vec<f32> = (b.y0..b.y1)
         .flat_map(|y| {
@@ -680,8 +689,43 @@ pub fn layer_document(doc: &Document, id: LayerId) -> Result<Document> {
             (b.x0..b.x1).flat_map(move |x| photocraft_raster::from_rgba(&fmt, px[row + (x - area.x0) as usize]))
         })
         .collect();
-    surf.write_region(Rect::from_xywh(0, 0, b.width(), b.height()), &rows);
-    out.layers.push(Layer::new(l.name.clone(), LayerContent::Raster(surf)));
+    let origin = Rect::from_xywh(0, 0, b.width(), b.height());
+    surf.write_region(origin, &rows);
+    let indexed_pixels = if let Some(table) = &indexed_table {
+        // Keep duplicate IDs only when rendering leaves the source raster unchanged.
+        let reusable = matches!(&l.content, LayerContent::Raster(_))
+            && l.opacity == 1.0
+            && l.fill_opacity == 1.0
+            && l.blend == BlendMode::Normal
+            && l.mask.is_none()
+            && l.vector_mask.is_none()
+            && l.effects.items.is_empty()
+            && l.fill_cache.is_none()
+            && l.excluded_channels == 0
+            && l.blend_if == BlendIf::default()
+            && l.video.is_none();
+        let indexed = if reusable {
+            l.indexed_pixels.as_ref().map(|source| {
+                let mut cropped = source.clone();
+                let assignments = crop_surface(source.assignments(), b);
+                let alpha = crop_surface(source.alpha(), b);
+                *cropped.assignments_mut() = translate_surface(&assignments, -b.x0, -b.y0);
+                *cropped.alpha_mut() = translate_surface(&alpha, -b.x0, -b.y0);
+                cropped
+            })
+        } else {
+            None
+        };
+        Some(match indexed {
+            Some(indexed) => indexed,
+            None => crate::mode_cmds::quantize_indexed_surface(&mut surf, table)?,
+        })
+    } else {
+        None
+    };
+    let mut layer = Layer::new(l.name.clone(), LayerContent::Raster(surf));
+    layer.indexed_pixels = indexed_pixels;
+    out.layers.push(layer);
     Ok(out)
 }
 

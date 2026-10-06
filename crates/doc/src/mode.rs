@@ -3,9 +3,14 @@
 //! Indexed, Bitmap and Duotone documents keep their pixels expanded (RGB / Gray, see
 //! [`crate::Document::pixel_format`]); these structs carry what the mode adds on top.
 
+use photocraft_color::PixelFormat;
+use photocraft_raster::Surface;
 use serde::{Deserialize, Serialize};
 
 use crate::adjust::CurvePoint;
+
+const INDEXED_ASSIGNMENTS_FORMAT: PixelFormat = PixelFormat::GRAYA8;
+const INDEXED_ALPHA_FORMAT: PixelFormat = PixelFormat::GRAY8;
 
 /// Image › Mode › Color Table: the palette of an Indexed Color document (at most 256 entries).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -33,6 +38,74 @@ impl ColorTable {
     /// Entry `i` as RGB in 0..=1 (black past the end).
     pub fn rgb(&self, i: usize) -> [f32; 3] {
         self.colors.get(i).map_or([0.0; 3], |e| e.map(|v| f32::from(v) / 255.0))
+    }
+}
+
+/// Exact palette identity and pre-palette alpha for an expanded indexed raster.
+///
+/// Equal RGB entries and palette transparency make the expanded surface non-invertible, so
+/// assignments and original alpha stay in document state rather than being reconstructed later.
+#[derive(Clone, Debug, PartialEq)]
+pub struct IndexedPixels {
+    assignments: Surface,
+    alpha: Surface,
+}
+
+impl IndexedPixels {
+    pub fn new() -> Self {
+        Self { assignments: Surface::new(INDEXED_ASSIGNMENTS_FORMAT), alpha: Surface::new(INDEXED_ALPHA_FORMAT) }
+    }
+
+    /// Reject persisted planes whose channel layouts cannot represent assignments and alpha.
+    pub fn from_surfaces(assignments: Surface, alpha: Surface) -> Option<Self> {
+        if assignments.format() != INDEXED_ASSIGNMENTS_FORMAT || alpha.format() != INDEXED_ALPHA_FORMAT {
+            return None;
+        }
+        Some(Self { assignments, alpha })
+    }
+
+    pub fn assignments(&self) -> &Surface {
+        &self.assignments
+    }
+
+    pub fn assignments_mut(&mut self) -> &mut Surface {
+        &mut self.assignments
+    }
+
+    pub fn alpha(&self) -> &Surface {
+        &self.alpha
+    }
+
+    pub fn alpha_mut(&mut self) -> &mut Surface {
+        &mut self.alpha
+    }
+
+    pub fn sample(&self, x: i32, y: i32) -> Option<(u8, f32)> {
+        if self.assignments.sample_channel(x, y, 1) < 0.5 {
+            return None;
+        }
+        let index = (self.assignments.sample_channel(x, y, 0) * 255.0).round().clamp(0.0, 255.0) as u8;
+        Some((index, self.alpha.sample_channel(x, y, 0)))
+    }
+
+    /// Store a palette assignment and its alpha independent of palette transparency.
+    pub fn set_sample(&mut self, x: i32, y: i32, index: u8, alpha: f32) -> bool {
+        if !alpha.is_finite() {
+            return false;
+        }
+        self.assignments.write_pixel(x, y, &[f32::from(index) / 255.0, 1.0]);
+        self.alpha.write_pixel(x, y, &[alpha.clamp(0.0, 1.0)]);
+        true
+    }
+
+    pub fn clear_sample(&mut self, x: i32, y: i32) {
+        self.assignments.write_pixel(x, y, &[0.0, 0.0]);
+        self.alpha.write_pixel(x, y, &[0.0]);
+    }
+}
+impl Default for IndexedPixels {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

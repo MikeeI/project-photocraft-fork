@@ -299,9 +299,23 @@ fn translate_moves_pixels_and_respects_locks() {
     s.execute("select.rect", json!({"x": 0, "y": 0, "width": 4, "height": 4})).unwrap();
     s.execute("edit.fill", json!({"color": "#ff0000"})).unwrap();
     s.execute("select.deselect", json!({})).unwrap();
+    let translated_layer = s.active().unwrap().active_layer.unwrap();
+    s.edit("indexed movement fixture", |doc, active| {
+        let mut indexed = photocraft_doc::IndexedPixels::new();
+        assert!(indexed.set_sample(1, 1, 0, 1.0));
+        doc.mode = photocraft_color::ColorMode::Indexed;
+        doc.color_table = Some(photocraft_doc::ColorTable { colors: vec![[255, 0, 0], [255, 255, 255]], transparent: None });
+        doc.layer_mut(active.unwrap()).unwrap().indexed_pixels = Some(indexed);
+        Ok(())
+    })
+    .unwrap();
     s.execute("layer.translate", json!({"dx": 10, "dy": 5})).unwrap();
     assert_eq!(px(&mut s, 11, 6), vec![1.0, 0.0, 0.0, 1.0]);
     assert_eq!(px(&mut s, 1, 1), vec![1.0, 1.0, 1.0, 1.0]);
+    let indexed = s.active().unwrap().doc.layer(translated_layer).unwrap().indexed_pixels.as_ref().unwrap();
+    assert_eq!(indexed.sample(11, 6), Some((0, 1.0)));
+    // The removed source keeps a zero-alpha sample, so palette edits cannot resurrect it.
+    assert_eq!(indexed.sample(1, 1).map(|(_, alpha)| alpha), Some(0.0));
     // Background is position-locked
     let bg = s.active().unwrap().doc.layers[0].id;
     s.select_layer(bg).unwrap();

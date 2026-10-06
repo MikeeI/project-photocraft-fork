@@ -204,13 +204,18 @@ fn indexed_colors_match_palette() {
     let (d, _) = psd_to_document(&f);
     let s = d.layers[0].surface().unwrap();
     let rgba = f.composite_rgba8().unwrap();
+    let indices = f.decode_merged().unwrap();
+    let indexed = d.layers[0].indexed_pixels.as_ref().expect("indexed import must retain raw indices");
+    assert_eq!(d.color_table.as_ref().unwrap().transparent, None);
     for y in 0..2 {
         for x in 0..4 {
             let p = s.pixel(x, y);
-            let i = ((y * 4 + x) * 4) as usize;
+            let pixel_offset = ((y * 4 + x) * 4) as usize;
+            let source_offset = (y * 4 + x) as usize;
             for (c, v) in p.iter().take(3).enumerate() {
-                assert_eq!((v * 255.0).round() as u8, rgba.data[i + c]);
+                assert_eq!((v * 255.0).round() as u8, rgba.data[pixel_offset + c]);
             }
+            assert_eq!(indexed.sample(x, y).unwrap().0, indices[source_offset]);
         }
     }
 }

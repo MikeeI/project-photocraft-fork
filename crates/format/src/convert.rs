@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use photocraft_color::{PixelFormat, SampleType};
 use photocraft_doc::{
-    AlphaChannel, CompAppearance, CompLayerState, DocId, Document, Effects, FillCache, Group, Layer, LayerComp, LayerContent, LayerId, LayerMask, Metadata,
-    NamedPath, Pattern, ShapeLayer, SmartObject, SmartSource, TextLayer,
+    AlphaChannel, CompAppearance, CompLayerState, DocId, Document, Effects, FillCache, Group, IndexedPixels, Layer, LayerComp, LayerContent, LayerId,
+    LayerMask, Metadata, NamedPath, Pattern, ShapeLayer, SmartObject, SmartSource, TextLayer,
 };
 use photocraft_geom::{TILE_SIZE, TileCoord};
 use photocraft_raster::{Surface, Tile, decode_pixel, encode_pixel};
@@ -172,6 +172,7 @@ fn layer_m(l: &Layer, sink: &mut dyn Sink) -> LayerM {
         },
         label: l.label,
         content,
+        indexed_pixels: l.indexed_pixels.as_ref().map(|p| IndexedPixelsM { assignments: surface_m(p.assignments(), sink), alpha: surface_m(p.alpha(), sink) }),
         psd_blocks: l.psd_blocks.iter().map(|(k, d)| (hex(k), sink.blob(d))).collect(),
         psd_id: l.psd_id,
         fill_cache: l.fill_cache.as_ref().map(|fc| FillCacheM { fill: fc.fill.clone(), surface: surface_m(&fc.surface, sink) }),
@@ -428,6 +429,18 @@ impl Loader<'_> {
             Some(fc) => Some(FillCache { fill: fc.fill.clone(), surface: self.surface(&fc.surface)? }),
             None => None,
         };
+        let indexed_pixels = m
+            .indexed_pixels
+            .as_ref()
+            .map(|p| {
+                let assignments = self.surface(&p.assignments)?;
+                let alpha = self.surface(&p.alpha)?;
+                IndexedPixels::from_surfaces(assignments, alpha).ok_or_else(|| FormatError::corrupt("invalid indexed pixel sidecar formats"))
+            })
+            .transpose()?;
+        if indexed_pixels.is_some() && !matches!(&content, LayerContent::Raster(_)) {
+            return Err(FormatError::corrupt("indexed pixel sidecar is attached to a non-raster layer"));
+        }
         let mut psd_blocks = Vec::with_capacity(m.psd_blocks.len());
         for (k, h) in &m.psd_blocks {
             psd_blocks.push((key4(k)?, self.fetch.blob(h)?));
@@ -450,6 +463,7 @@ impl Loader<'_> {
                 reference: m.effects.reference,
             },
             label: m.label,
+            indexed_pixels,
             content,
             psd_blocks,
             psd_id: m.psd_id,

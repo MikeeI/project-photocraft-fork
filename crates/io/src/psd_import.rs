@@ -3,7 +3,9 @@
 use std::sync::Arc;
 
 use photocraft_color::{BlendMode, ColorMode, PixelFormat, SampleType};
-use photocraft_doc::{AlphaChannel, Document, Effects, FillCache, Group, Layer, LayerContent, LayerMask, ShapeLayer, SmartObject, SmartSource, TextLayer};
+use photocraft_doc::{
+    AlphaChannel, Document, Effects, FillCache, Group, IndexedPixels, Layer, LayerContent, LayerMask, ShapeLayer, SmartObject, SmartSource, TextLayer,
+};
 use photocraft_geom::{Rect, Size, TILE_SIZE};
 use photocraft_psd::layer::{CHANNEL_REAL_USER_MASK, CHANNEL_TRANSPARENCY, CHANNEL_USER_MASK};
 use photocraft_psd::resources::ids;
@@ -67,6 +69,31 @@ fn doc_mode(m: PsdMode) -> Option<ColorMode> {
         PsdMode::Lab => ColorMode::Lab,
         PsdMode::Unknown(_) => return None,
     })
+}
+
+fn indexed_pixels_from_merged(indices: &[u8], rgba: &[u8], canvas: Rect) -> std::result::Result<IndexedPixels, String> {
+    let pixels = usize::try_from(canvas.width())
+        .map_err(|e| format!("invalid indexed canvas width: {e}"))?
+        .checked_mul(usize::try_from(canvas.height()).map_err(|e| format!("invalid indexed canvas height: {e}"))?)
+        .ok_or_else(|| "indexed canvas dimensions overflow".to_string())?;
+    let rgba_len = pixels.checked_mul(4).ok_or_else(|| "indexed RGBA sample count overflow".to_string())?;
+    if indices.len() != pixels || rgba.len() != rgba_len {
+        return Err("indexed source planes do not match the canvas dimensions".into());
+    }
+    let assignment_len = pixels.checked_mul(2).ok_or_else(|| "indexed assignment count overflow".to_string())?;
+    let mut assignments = Vec::new();
+    assignments.try_reserve_exact(assignment_len).map_err(|e| format!("could not allocate indexed assignments: {e}"))?;
+    let mut alpha = Vec::new();
+    alpha.try_reserve_exact(pixels).map_err(|e| format!("could not allocate indexed alpha: {e}"))?;
+    let (rgba_pixels, _) = rgba.as_chunks::<4>();
+    for (&index, pixel) in indices.iter().zip(rgba_pixels) {
+        assignments.extend([f32::from(index) / 255.0, 1.0]);
+        alpha.push(f32::from(pixel[3]) / 255.0);
+    }
+    let mut indexed = IndexedPixels::new();
+    indexed.assignments_mut().write_region(canvas, &assignments);
+    indexed.alpha_mut().write_region(canvas, &alpha);
+    Ok(indexed)
 }
 
 // Real-mask metadata without a -3 channel still selects the synthetic -2 mask.
@@ -485,6 +512,12 @@ pub fn psd_to_document(file: &PsdFile) -> (Document, Vec<String>) {
         doc.measurement.scale = scale;
     }
 
+    if h.color_mode == PsdMode::Indexed && file.color_mode_data.len() >= 768 {
+        // Planar palette: 256 reds, 256 greens, 256 blues (the Color Table).
+        let m = &file.color_mode_data;
+        let colors = (0..256).map(|i| [m[i], m[256 + i], m[512 + i]]).collect();
+        doc.color_table = Some(photocraft_doc::ColorTable { colors, transparent: None });
+    }
     let fmt = doc.pixel_format();
     let cc = fmt.mode.color_channels();
     let mut cx = Ctx {
@@ -515,7 +548,8 @@ pub fn psd_to_document(file: &PsdFile) -> (Document, Vec<String>) {
         if !file.layers().is_empty() {
             cx.warn(format!("Multichannel documents have no layers: {} layer records were not imported", file.layers().len()));
         }
-    } else if layered {
+    } else if layered && h.color_mode != PsdMode::Indexed {
+        // Layer records expand indexed samples without retaining their palette entry IDs.
         let tree = file.layer_tree();
         doc.layers = cx.build(&tree);
         // Layer › Link Layers: resource 1026 holds one group id per layer record (0 = unlinked).
@@ -574,12 +608,7 @@ pub fn psd_to_document(file: &PsdFile) -> (Document, Vec<String>) {
         } else {
             cx.warn(format!("{:?} {}-bit document converted to {:?} 8-bit for editing", h.color_mode, h.depth, fmt.mode));
         }
-        if h.color_mode == PsdMode::Indexed && file.color_mode_data.len() >= 768 {
-            // Planar palette: 256 reds, 256 greens, 256 blues (the Color Table).
-            let m = &file.color_mode_data;
-            let colors = (0..256).map(|i| [m[i], m[256 + i], m[512 + i]]).collect();
-            doc.color_table = Some(photocraft_doc::ColorTable { colors, transparent: None });
-        } else if h.color_mode == PsdMode::Duotone && !file.color_mode_data.is_empty() {
+        if h.color_mode == PsdMode::Duotone && !file.color_mode_data.is_empty() {
             // The duotone ink block is undocumented: keep it raw; the image shows as its gray plate.
             doc.duotone =
                 Some(photocraft_doc::Duotone { inks: vec![photocraft_doc::DuotoneInk::new("Black", [0.0; 3])], psd_raw: Some(file.color_mode_data.clone()) });
@@ -614,7 +643,18 @@ pub fn psd_to_document(file: &PsdFile) -> (Document, Vec<String>) {
                 .collect();
             s.write_region(canvas, &vals);
             s.prune();
-            doc.layers.push(Layer::new("Background", LayerContent::Raster(s)));
+            let mut bg = Layer::new("Background", LayerContent::Raster(s));
+            if h.color_mode == PsdMode::Indexed && doc.color_table.is_some() {
+                if let Some(indices) = merged.as_ref().ok().and_then(|data| data.get(..h.row_bytes().saturating_mul(hh))) {
+                    match indexed_pixels_from_merged(indices, &img.data, canvas) {
+                        Ok(indexed) => bg.indexed_pixels = Some(indexed),
+                        Err(error) => cx.warn(format!("indexed pixel identities were not retained: {error}")),
+                    }
+                } else {
+                    cx.warn("indexed pixel identities were not retained because the raw index plane is unavailable");
+                }
+            }
+            doc.layers.push(bg);
         }
     }
 

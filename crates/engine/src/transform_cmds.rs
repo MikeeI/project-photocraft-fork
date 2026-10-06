@@ -173,6 +173,7 @@ pub(crate) fn transform_layer(doc_sel: Option<&Surface>, l: &mut Layer, h: &Homo
     // With a selection only the selected pixels move, and so only the same region of a linked
     // mask (#205). Groups, type, shapes and smart objects move whole.
     let mask_sel = doc_sel.filter(|_| !matches!(l.content, LayerContent::Group(_) | LayerContent::Text(_) | LayerContent::Shape(_) | LayerContent::Smart(_)));
+    let indexed = l.indexed_pixels.clone();
     match &mut l.content {
         LayerContent::Group(g) => {
             for c in g.children.iter_mut() {
@@ -224,6 +225,9 @@ pub(crate) fn transform_layer(doc_sel: Option<&Surface>, l: &mut Layer, h: &Homo
             }
         }
     }
+    if let Some(indexed) = indexed {
+        l.indexed_pixels = Some(transform_indexed_pixels(indexed, doc_sel, h));
+    }
     if let Some(m) = l.mask.as_mut()
         && m.linked
     {
@@ -266,6 +270,73 @@ pub fn split_selected(surf: &Surface, sel: &Surface) -> (Surface, Surface) {
     lifted.prune();
     rest.write_region(src, &rp);
     (lifted, rest)
+}
+
+// Base alpha follows the same selected/unselected split as each palette assignment.
+fn indexed_alpha_pair(indexed: &photocraft_doc::IndexedPixels) -> Surface {
+    let area = indexed.assignments().content_bounds();
+    let assignments = indexed.assignments().read_region(area);
+    let alpha = indexed.alpha().read_region(area);
+    let mut data = Vec::with_capacity(alpha.len().saturating_mul(2));
+    for (assignment, alpha) in assignments.as_chunks::<2>().0.iter().zip(alpha) {
+        data.extend([alpha, assignment[1]]);
+    }
+    let mut paired = Surface::new(photocraft_color::PixelFormat::GRAYA8);
+    paired.write_region(area, &data);
+    paired.prune();
+    paired
+}
+
+// A feathered selection may blend different IDs; keep the dominant contributor, then reconcile the resulting raster color.
+fn merge_indexed_parts(rest: Surface, rest_alpha: Surface, moved: Surface, moved_alpha: Surface) -> photocraft_doc::IndexedPixels {
+    let rest_bounds = rest.content_bounds();
+    let moved_bounds = moved.content_bounds();
+    let area = if rest_bounds.is_empty() {
+        moved_bounds
+    } else if moved_bounds.is_empty() {
+        rest_bounds
+    } else {
+        rest_bounds.union(&moved_bounds)
+    };
+    let rest_data = rest.read_region(area);
+    let rest_alpha_data = rest_alpha.read_region(area);
+    let moved_data = moved.read_region(area);
+    let moved_alpha_data = moved_alpha.read_region(area);
+    let mut assignments = Vec::with_capacity(rest_data.len());
+    let mut alpha = Vec::with_capacity(rest_data.len() / 2);
+    for (i, (rest_pixel, moved_pixel)) in rest_data.as_chunks::<2>().0.iter().zip(moved_data.as_chunks::<2>().0).enumerate() {
+        let (sample, alpha_sample) = if moved_pixel[1] > 0.0 && moved_pixel[1] >= rest_pixel[1] {
+            (moved_pixel, &moved_alpha_data[i * 2..i * 2 + 2])
+        } else if rest_pixel[1] > 0.0 {
+            (rest_pixel, &rest_alpha_data[i * 2..i * 2 + 2])
+        } else {
+            assignments.extend([0.0, 0.0]);
+            alpha.push(0.0);
+            continue;
+        };
+        assignments.extend([sample[0], 1.0]);
+        alpha.push(alpha_sample[0]);
+    }
+    let mut indexed = photocraft_doc::IndexedPixels::new();
+    indexed.assignments_mut().write_region(area, &assignments);
+    indexed.alpha_mut().write_region(area, &alpha);
+    indexed.assignments_mut().prune();
+    indexed.alpha_mut().prune();
+    indexed
+}
+
+// Indices are categorical: nearest-neighbor sampling cannot invent a palette entry.
+fn transform_indexed_pixels(mut indexed: photocraft_doc::IndexedPixels, selection: Option<&Surface>, h: &Homography) -> photocraft_doc::IndexedPixels {
+    let src = indexed.assignments().content_bounds();
+    let Some(selection) = selection else {
+        *indexed.assignments_mut() = warp_surface(indexed.assignments(), src, h, Interp::Nearest);
+        *indexed.alpha_mut() = warp_surface(indexed.alpha(), src, h, Interp::Nearest);
+        return indexed;
+    };
+    let alpha_pair = indexed_alpha_pair(&indexed);
+    let (lifted, rest) = split_selected(indexed.assignments(), selection);
+    let (lifted_alpha, rest_alpha) = split_selected(&alpha_pair, selection);
+    merge_indexed_parts(rest, rest_alpha, warp_surface(&lifted, src, h, Interp::Nearest), warp_surface(&lifted_alpha, src, h, Interp::Nearest))
 }
 
 pub(crate) fn refresh_text(doc: &Document, l: &mut Layer) {

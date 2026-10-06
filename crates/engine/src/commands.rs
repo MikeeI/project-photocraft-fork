@@ -1071,8 +1071,8 @@ fn combine(a: &Surface, b: &Surface, area: Rect, f: impl Fn(f32, f32) -> f32) ->
     out
 }
 
-/// Move a layer's pixels, linked mask and type by whole pixels (vectors move via
-/// `vector_cmds::translate_vectors`).
+/// Move a layer's pixels, indexed identity maps, linked mask and type by whole pixels (vectors move
+/// via `vector_cmds::translate_vectors`).
 pub(crate) fn translate_layer(doc: &Document, l: &mut Layer, dx: i32, dy: i32) {
     use crate::layer_multi_cmds::shift_surface as translate_surface;
     // Linked patterns in the layer's effects move with it.
@@ -1083,6 +1083,10 @@ pub(crate) fn translate_layer(doc: &Document, l: &mut Layer, dx: i32, dy: i32) {
         && m.linked
     {
         m.surface = translate_surface(&m.surface, dx, dy);
+    }
+    if let Some(indexed) = &mut l.indexed_pixels {
+        *indexed.assignments_mut() = translate_surface(indexed.assignments(), dx, dy);
+        *indexed.alpha_mut() = translate_surface(indexed.alpha(), dx, dy);
     }
     match &mut l.content {
         LayerContent::Raster(s) => *s = translate_surface(s, dx, dy),

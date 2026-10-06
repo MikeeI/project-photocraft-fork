@@ -89,6 +89,29 @@ fn conversion_is_pixel_identical_at_every_depth() {
         s.undo();
         assert_eq!(flat(&s), before);
     }
+    let mut source = Document::new("indexed", Size::new(8, 1), photocraft_color::ColorMode::Indexed, photocraft_color::SampleType::U8);
+    source.color_table = Some(photocraft_doc::ColorTable { colors: vec![[255, 0, 0], [255, 0, 0]], transparent: None });
+    let fmt = source.pixel_format();
+    let mut layer = Layer::raster("duplicate indices", fmt);
+    let red = photocraft_raster::from_rgba(&fmt, [1.0, 0.0, 0.0, 1.0]).repeat(4);
+    layer.surface_mut().unwrap().write_region(Rect::new(2, 0, 6, 1), &red);
+    let mut indexed = photocraft_doc::IndexedPixels::new();
+    for x in 2..6 {
+        assert!(indexed.set_sample(x, 0, (x % 2) as u8, 1.0));
+    }
+    layer.indexed_pixels = Some(indexed);
+    source.layers.push(layer);
+    let mut indexed_session = Session::new();
+    indexed_session.add_document(source, None);
+    convert(&mut indexed_session);
+    let smart = active_smart(&indexed_session);
+    let SmartSource::Embedded { file_name, bytes } = &smart.source else { panic!() };
+    let inner = decode_source(file_name, bytes).unwrap();
+    assert_eq!(inner.mode, photocraft_color::ColorMode::Indexed);
+    assert_eq!(inner.color_table.as_ref().unwrap().colors, [[255, 0, 0], [255, 0, 0]]);
+    let pixels = inner.layers[0].indexed_pixels.as_ref().unwrap();
+    assert_eq!(pixels.sample(0, 0), Some((0, 1.0)));
+    assert_eq!(pixels.sample(1, 0), Some((1, 1.0)));
 }
 
 #[test]

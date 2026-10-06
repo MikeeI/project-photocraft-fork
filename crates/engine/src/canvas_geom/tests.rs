@@ -29,6 +29,18 @@ fn paint(s: &mut Session, f: impl Fn(i32, i32) -> [f32; 4]) {
     .unwrap();
 }
 
+fn indexed_pair() -> Session {
+    let mut s = Session::new();
+    s.execute("file.new", json!({"width": 8, "height": 1})).unwrap();
+    paint(&mut s, |x, _| if x < 4 { [1.0, 0.0, 0.0, 1.0] } else { [0.0, 0.0, 1.0, 1.0] });
+    s.execute("image.mode.indexedColor", json!({"palette": "exact", "forced": "none"})).unwrap();
+    s
+}
+
+fn indexed_index(s: &Session, x: i32, y: i32) -> u8 {
+    doc(s).layers[0].indexed_pixels.as_ref().and_then(|pixels| pixels.sample(x, y)).unwrap().0
+}
+
 /// An asymmetric document: a gradient Background, a type layer, a shape layer, a raster layer
 /// with a vector mask and a smart object, plus a guide, a saved path and a slice.
 fn mixed(depth: u64, mode: &str) -> Session {
@@ -135,6 +147,12 @@ fn turns_at_every_depth_and_mode() {
     }
     check_turn(32, "rgb", Turn::FlipHorizontal);
     check_turn(8, "cmyk", Turn::Ccw90);
+    let mut indexed = indexed_pair();
+    let (red, blue) = (indexed_index(&indexed, 0, 0), indexed_index(&indexed, 7, 0));
+    indexed.execute(command(Turn::FlipHorizontal), json!({})).unwrap();
+    assert_eq!((indexed_index(&indexed, 0, 0), indexed_index(&indexed, 7, 0)), (blue, red));
+    indexed.execute("edit.undo", json!({})).unwrap();
+    assert_eq!((indexed_index(&indexed, 0, 0), indexed_index(&indexed, 7, 0)), (red, blue));
 }
 
 #[test]
@@ -228,6 +246,12 @@ fn canvas_size_and_crop_move_vector_geometry() {
     assert_eq!((t2, k2), (t0, k0));
     let (mean, _) = diff(&photocraft_compose::flatten(doc(&s)).px, &before.px);
     assert!(mean < 1.0 / 255.0, "{mean}");
+    let mut indexed = indexed_pair();
+    let (red, blue) = (indexed_index(&indexed, 0, 0), indexed_index(&indexed, 7, 0));
+    indexed.execute("image.canvasSize", json!({"width": 8, "height": 0, "relative": true, "anchor": "bottomRight", "extensionColor": "transparent"})).unwrap();
+    assert_eq!((indexed_index(&indexed, 8, 0), indexed_index(&indexed, 15, 0)), (red, blue));
+    indexed.execute("image.crop", json!({"x": 8, "y": 0, "width": 8, "height": 1})).unwrap();
+    assert_eq!((indexed_index(&indexed, 0, 0), indexed_index(&indexed, 7, 0)), (red, blue));
 }
 
 #[test]
@@ -240,6 +264,18 @@ fn image_size_scales_vector_geometry() {
     assert!((t1[0] - 2.0 * t0[0]).abs() < 1e-9 && (t1[4] - 2.0 * t0[4]).abs() < 1e-9, "{t0:?} {t1:?}");
     assert_eq!((k1[0], k1[1]), (2.0 * k0[0], 2.0 * k0[1]));
     assert_eq!(d.guides.vertical, vec![20.0]);
+    let mut indexed = indexed_pair();
+    let red = indexed_index(&indexed, 0, 0);
+    indexed.execute("image.imageSize", json!({"width": 16, "height": 2, "resample": "bicubic"})).unwrap();
+    assert_eq!(indexed_index(&indexed, 0, 0), red);
+    assert_eq!(indexed_index(&indexed, 15, 1), indexed_index(&indexed, 15, 0));
+    let index = indexed_index(&indexed, 7, 0);
+    let expected = doc(&indexed).color_table.as_ref().unwrap().colors[usize::from(index)].map(|channel| f32::from(channel) / 255.0);
+    let seam = doc(&indexed).layers[0].surface().unwrap().rgba(7, 0);
+    assert_eq!(&seam[..3], &expected);
+    indexed.execute("select.rect", json!({"x": 0, "y": 0, "width": 8, "height": 2})).unwrap();
+    indexed.execute("edit.transform", json!({"matrix": [1, 0, 0, 1, 8, 0]})).unwrap();
+    assert_eq!(indexed_index(&indexed, 8, 0), red);
 }
 
 #[test]
@@ -268,6 +304,10 @@ fn arbitrary_rotation_moves_marks_and_unlinked_vector_masks() {
     s2.execute("image.imageRotation.90cw", json!({})).unwrap();
     let (mean, big) = diff(&photocraft_compose::flatten(d).px, &photocraft_compose::flatten(doc(&s2)).px);
     assert!(mean < 3.0 / 255.0 && big < 0.02, "mean {mean} big {big}");
+    let mut indexed = indexed_pair();
+    let (red, blue) = (indexed_index(&indexed, 0, 0), indexed_index(&indexed, 7, 0));
+    indexed.execute("image.rotation.arbitrary", json!({"angle": 90, "direction": "cw", "interpolation": "bicubic"})).unwrap();
+    assert_eq!((indexed_index(&indexed, 0, 0), indexed_index(&indexed, 0, 7)), (red, blue));
 }
 
 #[test]

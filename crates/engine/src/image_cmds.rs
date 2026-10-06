@@ -48,6 +48,19 @@ pub(crate) fn for_each_surface(layers: &mut [Layer], masks: bool, f: &mut dyn Fn
     }
 }
 
+/// Categorical palette assignments use these spatial maps instead of expanded-color interpolation.
+fn for_each_indexed_surface(layers: &mut [Layer], f: &mut dyn FnMut(&mut Surface)) {
+    for layer in layers {
+        if let Some(indexed) = &mut layer.indexed_pixels {
+            f(indexed.assignments_mut());
+            f(indexed.alpha_mut());
+        }
+        if let Some(children) = layer.children_mut() {
+            for_each_indexed_surface(children, f);
+        }
+    }
+}
+
 fn for_each_layer(layers: &mut [Layer], f: &mut dyn FnMut(&mut Layer)) {
     for l in layers {
         f(l);
@@ -128,6 +141,9 @@ fn image_size(s: &mut Session, p: &Value) -> Result<Value> {
         for_each_surface(&mut doc.layers, true, &mut |surf, is_mask| {
             *surf = resize_surface(surf, sx, sy, if is_mask { Resample::Bilinear } else { filter });
         });
+        for_each_indexed_surface(&mut doc.layers, &mut |plane| {
+            *plane = resize_surface(plane, sx, sy, Resample::Nearest);
+        });
         let k = ((sx + sy) / 2.0) as f32;
         for_each_layer(&mut doc.layers, &mut |l| scale_effects(&mut l.effects, k));
         for ch in doc.channels.iter_mut().chain(doc.quick_mask.as_mut()) {
@@ -151,6 +167,7 @@ fn translate_doc(doc: &mut Document, dx: i32, dy: i32) {
         return;
     }
     for_each_surface(&mut doc.layers, true, &mut |surf, _| *surf = translate_surface(surf, dx, dy));
+    for_each_indexed_surface(&mut doc.layers, &mut |plane| *plane = translate_surface(plane, dx, dy));
     for ch in doc.channels.iter_mut().chain(doc.quick_mask.as_mut()) {
         ch.surface = translate_surface(&ch.surface, dx, dy);
     }
@@ -166,6 +183,7 @@ fn translate_doc(doc: &mut Document, dx: i32, dy: i32) {
 fn crop_doc(doc: &mut Document, r: Rect, delete_pixels: bool) {
     if delete_pixels {
         for_each_surface(&mut doc.layers, false, &mut |surf, _| *surf = crop_surface(surf, r));
+        for_each_indexed_surface(&mut doc.layers, &mut |plane| *plane = crop_surface(plane, r));
     }
     translate_doc(doc, -r.x0, -r.y0);
     doc.size = Size::new(r.width(), r.height());

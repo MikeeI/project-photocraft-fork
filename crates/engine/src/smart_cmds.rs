@@ -428,6 +428,13 @@ fn shift_layer(l: &mut Layer, dx: i32, dy: i32) {
     }
     let a = Affine::translate(dx as f64, dy as f64);
     let mv = |s: &Surface| translate_surface(s, dx, dy);
+    // The embedded pcraft is cropped below, so its palette identity planes must shift with pixels.
+    if let Some(indexed) = &mut l.indexed_pixels {
+        let assignments = mv(indexed.assignments());
+        let alpha = mv(indexed.alpha());
+        *indexed.assignments_mut() = assignments;
+        *indexed.alpha_mut() = alpha;
+    }
     if let Some(m) = &mut l.mask {
         m.surface = mv(&m.surface);
     }
@@ -490,6 +497,8 @@ pub fn layer_to_smart(doc: &Document, l: &Layer) -> Result<Layer> {
     let mut sub = Document::new(format!("{}.pcraft", l.name), doc.size, doc.mode, doc.depth);
     sub.resolution_dpi = doc.resolution_dpi;
     sub.icc_profile = doc.icc_profile.clone();
+    // Preserve Indexed Color state in the embedded native document.
+    sub.color_table = doc.color_table.clone();
     sub.global_light = doc.global_light;
     if any_layer(l, &|x| matches!(x.content, LayerContent::Smart(_))) {
         // Nested PSD placed layers find their embedded files here.

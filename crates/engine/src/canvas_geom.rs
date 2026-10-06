@@ -237,12 +237,16 @@ impl Turn {
     }
 }
 
-/// Every pixel surface a canvas turn moves: content, rendered caches (type, shape, smart object,
-/// fill), masks (layer, smart filter), alpha channels, Quick Mask and the selection.
+/// Every canvas-turn surface and indexed identity plane moves: content, rendered caches (type,
+/// shape, smart object, fill), masks (layer, smart filter), alpha channels, Quick Mask and selection.
 fn remap_pixels(doc: &mut Document, map: &dyn Fn(i32, i32) -> (i32, i32)) {
     fn rec(layers: &mut [Layer], map: &dyn Fn(i32, i32) -> (i32, i32)) {
         let re = |s: &mut Surface| *s = remap_surface(s, map);
         for l in layers {
+            if let Some(indexed) = &mut l.indexed_pixels {
+                re(indexed.assignments_mut());
+                re(indexed.alpha_mut());
+            }
             if let Some(m) = &mut l.mask {
                 re(&mut m.surface);
             }

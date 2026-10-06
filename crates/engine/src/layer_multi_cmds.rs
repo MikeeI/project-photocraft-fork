@@ -293,7 +293,7 @@ pub(crate) fn shift_surface(s: &photocraft_raster::Surface, dx: i32, dy: i32) ->
     out
 }
 
-/// [`crate::commands::translate_layer`] plus the vector side, without re-rendering anything.
+/// [`crate::commands::translate_layer`] plus indexed maps and the vector side, without re-rendering anything.
 fn shift_shown(doc: &Document, l: &mut Layer, dx: i32, dy: i32) {
     use self::shift_surface as translate_surface;
     let a = photocraft_geom::Affine::translate(f64::from(dx), f64::from(dy));
@@ -305,6 +305,10 @@ fn shift_shown(doc: &Document, l: &mut Layer, dx: i32, dy: i32) {
     }
     if let Some(vm) = l.vector_mask.as_mut().filter(|v| v.linked) {
         vm.path = vm.path.transform(&a);
+    }
+    if let Some(indexed) = &mut l.indexed_pixels {
+        *indexed.assignments_mut() = translate_surface(indexed.assignments(), dx, dy);
+        *indexed.alpha_mut() = translate_surface(indexed.alpha(), dx, dy);
     }
     match &mut l.content {
         LayerContent::Raster(s) => *s = translate_surface(s, dx, dy),

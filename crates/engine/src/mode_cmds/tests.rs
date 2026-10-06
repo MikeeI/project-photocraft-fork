@@ -121,6 +121,7 @@ fn indexed_exact_transparency_and_sources() {
     assert_eq!(t.transparent, Some(2));
     assert_eq!(d.layers[0].name, "Index");
     assert_eq!(d.layers[0].surface().unwrap().rgba(7, 0)[3], 0.0);
+    assert_eq!(d.layers[0].indexed_pixels.as_ref().unwrap().sample(7, 0), Some((2, 1.0)));
     // Exact fails on a gradient.
     let mut s = session(64, 64, 8, "rgb");
     assert!(s.execute("image.mode.indexedColor", json!({"palette": "exact"})).is_err());
@@ -130,12 +131,14 @@ fn indexed_exact_transparency_and_sources() {
         s.execute("image.mode.indexedColor", json!({"colors": 8})).unwrap();
         assert_eq!(doc(&s).mode, ColorMode::Indexed, "{mode}");
     }
-    // Back to RGB drops the table.
+    // Leaving Indexed Color drops the palette and per-pixel assignments; undo restores both.
     s.execute("image.mode.indexedColor", json!({"colors": 8})).unwrap();
     s.execute("image.mode.rgb", json!({})).unwrap();
     assert!(doc(&s).color_table.is_none());
+    assert!(doc(&s).layers.iter().all(|layer| layer.indexed_pixels.is_none()));
     s.execute("edit.undo", json!({})).unwrap();
     assert!(doc(&s).color_table.is_some());
+    assert!(doc(&s).layers[0].indexed_pixels.is_some());
 }
 
 #[test]
@@ -244,10 +247,24 @@ fn duotone_inks_and_display() {
 
 #[test]
 fn modes_round_trip_through_pcraft() {
-    let mut s = session(12, 12, 8, "rgb");
-    s.execute("image.mode.indexedColor", json!({"colors": 6})).unwrap();
+    let mut s = Session::new();
+    s.execute("file.new", json!({"width": 8, "height": 1, "background": "transparent"})).unwrap();
+    paint(&mut s, |x, _| if x < 4 { [1.0, 0.0, 0.0, 1.0] } else { [0.0, 0.0, 1.0, 1.0] });
+    s.execute("image.mode.indexedColor", json!({"palette": "exact", "dither": "none", "forced": "none"})).unwrap();
+    let table = doc(&s).color_table.clone().unwrap();
+    let first = table.colors.iter().position(|color| *color == [255, 0, 0]).unwrap();
+    let second = table.colors.iter().position(|color| *color == [0, 0, 255]).unwrap();
     let bytes = photocraft_format::save_to_bytes(doc(&s), &Default::default()).unwrap();
     let back = photocraft_format::load_from_bytes(&bytes).unwrap();
     assert_eq!(back.color_table, doc(&s).color_table);
     assert_eq!(back.mode, ColorMode::Indexed);
+    assert_eq!(back.layers[0].indexed_pixels.as_ref().unwrap().sample(0, 0).unwrap().0, first as u8);
+    assert_eq!(back.layers[0].indexed_pixels.as_ref().unwrap().sample(7, 0).unwrap().0, second as u8);
+    let mut restored = Session::new();
+    restored.add_document(back, None);
+    restored.execute("image.mode.colorTable", json!({"entries": {(first.to_string()): table.colors[second]}})).unwrap();
+    restored.execute("image.mode.colorTable", json!({"entries": {(first.to_string()): [0, 255, 0]}})).unwrap();
+    let surface = doc(&restored).layers[0].surface().unwrap();
+    assert_eq!(surface.rgba(0, 0), [0.0, 1.0, 0.0, 1.0]);
+    assert_eq!(surface.rgba(7, 0), [0.0, 0.0, 1.0, 1.0]);
 }

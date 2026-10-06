@@ -702,6 +702,14 @@ fn merge_to_hdr(s: &mut Session, p: &Value) -> Result<Value> {
 fn crop_and_straighten(s: &mut Session, _p: &Value) -> Result<Value> {
     let st = s.active().ok_or(EngineError::NoDocument)?;
     let doc = st.doc.clone();
+    // Validate before the output loop so a malformed source cannot leave partial result documents.
+    let indexed_table = if doc.mode == ColorMode::Indexed {
+        let table = doc.color_table.clone().ok_or_else(|| EngineError::Other("Indexed Color document has no color table".into()))?;
+        crate::mode_cmds::validate_indexed_table(&table)?;
+        Some(table)
+    } else {
+        None
+    };
     let fmt = doc.pixel_format();
     let flat = flattened(&doc, fmt);
     let area = doc.bounds();
@@ -738,12 +746,18 @@ fn crop_and_straighten(s: &mut Session, _p: &Value) -> Result<Value> {
             q[n - 1] = 1.0;
         }
         px.write_region(keep, &data);
+        // Perspective interpolation mixes entries; re-quantize to keep each output Indexed document valid.
+        let indexed_pixels = indexed_table.as_ref().map(|table| crate::mode_cmds::quantize_indexed_surface(&mut px, table)).transpose()?;
         let mut nd = Document::new(format!("{} copy {}", doc.name, k + 1), Size::new(pw, ph), doc.mode, doc.depth);
         nd.icc_profile = doc.icc_profile.clone();
         nd.resolution_dpi = doc.resolution_dpi;
+        if let Some(table) = &indexed_table {
+            nd.color_table = Some(table.clone());
+        }
         let mut bg = Layer::new("Background", LayerContent::Raster(px));
         bg.locks.transparency = true;
         bg.locks.position = true;
+        bg.indexed_pixels = indexed_pixels;
         nd.layers.push(bg);
         let idx = s.add_document(nd, None);
         out.push(json!({"document": idx, "width": pw, "height": ph, "angle": f.angle, "center": f.center}));
@@ -1022,5 +1036,19 @@ mod tests {
         assert!(b > a + 0.15, "{a} {b}");
         let (c, e) = (l.rgba(d.size.width as i32 / 2, 6)[0], l.rgba(d.size.width as i32 / 2, d.size.height as i32 - 6)[0]);
         assert!((c - e).abs() < 0.05);
+        let mut indexed_session = Session::new();
+        indexed_session.add_document(doc_from("scan", &px, w, h, SampleType::U8), None);
+        indexed_session.execute("image.mode.indexedColor", json!({"palette": "perceptual", "colors": 256, "forced": "none", "dither": "none"})).unwrap();
+        let indexed_result = indexed_session.execute("file.automate.cropAndStraightenPhotos", json!({})).unwrap();
+        assert_eq!(indexed_result["photos"].as_array().unwrap().len(), 2);
+        let indexed_doc = &indexed_session.documents()[1].doc;
+        assert_eq!(indexed_doc.mode, ColorMode::Indexed);
+        let table = indexed_doc.color_table.as_ref().unwrap();
+        let layer = &indexed_doc.layers[0];
+        let (index, alpha) = layer.indexed_pixels.as_ref().unwrap().sample(10, 10).unwrap();
+        assert_eq!(alpha, 1.0);
+        let expected = table.colors[usize::from(index)].map(|channel| f32::from(channel) / 255.0);
+        let actual = layer.surface().unwrap().rgba(10, 10);
+        assert_eq!(&actual[..3], &expected);
     }
 }

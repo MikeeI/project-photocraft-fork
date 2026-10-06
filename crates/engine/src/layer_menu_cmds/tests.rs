@@ -269,6 +269,15 @@ fn export_layer_trims_to_its_pixels() {
     assert_eq!(r["width"].as_u64(), Some(20));
     assert!(s.execute("layer.quickExportAsPng", json!({"path": jpg.to_string_lossy()})).is_err());
     assert!(s.execute("layer.exportAs", json!({})).is_err());
+    s.execute("image.mode.indexedColor", json!({"palette": "exact", "forced": "none"})).unwrap();
+    let indexed_id = active(&s).id;
+    let table = doc(&s).color_table.clone().unwrap();
+    let indexed_doc = layer_document(doc(&s), indexed_id).unwrap();
+    assert_eq!(indexed_doc.mode, photocraft_color::ColorMode::Indexed);
+    assert_eq!(indexed_doc.color_table.as_ref().unwrap(), &table);
+    let (index, alpha) = indexed_doc.layers[0].indexed_pixels.as_ref().unwrap().sample(0, 0).unwrap();
+    assert_eq!(alpha, 1.0);
+    assert_eq!(table.colors[usize::from(index)], [255, 0, 0]);
     let _ = std::fs::remove_dir_all(&dir);
 }
 

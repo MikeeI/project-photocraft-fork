@@ -33,7 +33,7 @@ pub use effects::{
     Bevel, BevelContour, BevelStyle, BevelTechnique, BevelTexture, Contour, Effect, FxCommon, FxPaint, GlobalLight, Glow, GlowSource, GlowTechnique, Gradient,
     GradientStyle, Satin, Shadow, StrokeFx, StrokePosition,
 };
-pub use mode::{ColorTable, Duotone, DuotoneInk, StackMode};
+pub use mode::{ColorTable, Duotone, DuotoneInk, IndexedPixels, StackMode};
 pub use pattern::Pattern;
 pub use photocraft_color::{BlendMode, Color, ColorMode, PixelFormat, SampleType};
 pub use photocraft_geom::{Affine, Rect, Size};
@@ -437,6 +437,8 @@ pub struct Layer {
     pub effects: Effects,
     pub label: LabelColor,
     pub content: LayerContent,
+    /// Palette identity beside expanded raster pixels; `None` means identity is unavailable.
+    pub indexed_pixels: Option<IndexedPixels>,
     /// Preserved PSD additional-layer-info blocks (key, data) for lossless
     /// round-trip of anything not modelled above: vector masks, blending
     /// options, layer version, and the original adjustment/fill blocks (the
@@ -480,6 +482,7 @@ impl Layer {
             effects: Effects { enabled: true, ..Default::default() },
             label: LabelColor::None,
             content,
+            indexed_pixels: None,
             psd_blocks: Vec::new(),
             psd_id: None,
             fill_cache: None,

@@ -195,6 +195,12 @@ pub struct FillCacheM {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct IndexedPixelsM {
+    pub assignments: SurfaceM,
+    pub alpha: SurfaceM,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LayerM {
     pub id: u64,
     pub name: String,
@@ -209,6 +215,9 @@ pub struct LayerM {
     pub vector_mask: Option<VectorMask>,
     pub effects: EffectsM,
     pub label: LabelColor,
+    /// Omitted in old saves; ambiguous palette identities are not reconstructed on load.
+    #[serde(default)]
+    pub indexed_pixels: Option<IndexedPixelsM>,
     pub content: ContentM,
     /// (4-char key as hex, blob)
     pub psd_blocks: Vec<(String, Hash)>,

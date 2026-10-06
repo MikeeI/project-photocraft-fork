@@ -671,6 +671,45 @@ fn image_processor(_s: &mut Session, p: &Value) -> Result<Value> {
     Ok(r)
 }
 
+/// Reuse IDs only when stacking a source cannot change a single Indexed raster's identity.
+fn reusable_stack_identity(doc: &Document, table: &photocraft_doc::ColorTable, format: PixelFormat) -> Option<photocraft_doc::IndexedPixels> {
+    if doc.mode != ColorMode::Indexed || doc.color_table.as_ref() != Some(table) {
+        return None;
+    }
+    let [layer] = doc.layers.as_slice() else {
+        return None;
+    };
+    if !layer.visible
+        || layer.opacity != 1.0
+        || layer.fill_opacity != 1.0
+        || layer.blend != photocraft_color::BlendMode::Normal
+        || layer.clipped
+        || layer.mask.is_some()
+        || layer.vector_mask.is_some()
+        || !layer.effects.items.is_empty()
+        || layer.fill_cache.is_some()
+        || layer.excluded_channels != 0
+        || layer.blend_if != photocraft_doc::BlendIf::default()
+        || layer.video.is_some()
+    {
+        return None;
+    }
+    let LayerContent::Raster(surface) = &layer.content else {
+        return None;
+    };
+    if surface.format() != format {
+        return None;
+    }
+    let indexed = layer.indexed_pixels.as_ref()?;
+    let canvas = doc.bounds();
+    for bounds in [surface.content_bounds(), indexed.assignments().content_bounds()] {
+        if !bounds.is_empty() && bounds.intersect(&canvas) != bounds {
+            return None;
+        }
+    }
+    Some(indexed.clone())
+}
+
 fn load_files_into_stack(s: &mut Session, p: &Value) -> Result<Value> {
     let cmd = "file.scripts.loadFilesIntoStack";
     let paths: Vec<String> = match p.get("paths").or_else(|| p.get("input")) {
@@ -689,13 +728,31 @@ fn load_files_into_stack(s: &mut Session, p: &Value) -> Result<Value> {
     let first = &docs[0].1;
     let w = docs.iter().map(|(_, d)| d.size.width).max().unwrap_or(1);
     let h = docs.iter().map(|(_, d)| d.size.height).max().unwrap_or(1);
+    let indexed_table = if first.mode == ColorMode::Indexed {
+        let table = first.color_table.clone().ok_or_else(|| EngineError::Other(format!("{cmd}: Indexed input has no color table")))?;
+        crate::mode_cmds::validate_indexed_table(&table)?;
+        Some(table)
+    } else {
+        None
+    };
     let mut stack = Document::new(stem(&paths[0]), photocraft_doc::Size::new(w, h), first.mode, first.depth);
     stack.resolution_dpi = first.resolution_dpi;
     stack.icc_profile = first.icc_profile.clone();
+    stack.color_table = indexed_table.clone();
     let fmt = stack.pixel_format();
     // First file at the bottom, like Photoshop's script.
     for (name, d) in &docs {
-        stack.layers.push(Layer::new(name.clone(), LayerContent::Raster(flattened(d, fmt))));
+        let mut surface = flattened(d, fmt);
+        let indexed_pixels = indexed_table
+            .as_ref()
+            .map(|table| match reusable_stack_identity(d, table, fmt) {
+                Some(indexed) => Ok(indexed),
+                None => crate::mode_cmds::quantize_indexed_surface(&mut surface, table),
+            })
+            .transpose()?;
+        let mut layer = Layer::new(name.clone(), LayerContent::Raster(surface));
+        layer.indexed_pixels = indexed_pixels;
+        stack.layers.push(layer);
     }
     let n = stack.layers.len();
     if p.get("createSmartObject").and_then(Value::as_bool).unwrap_or(false) {

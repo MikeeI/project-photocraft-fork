@@ -297,6 +297,28 @@ fn load_files_into_stack_and_image_processor_and_batch() {
     let px = photocraft_compose::render(&inv, Rect::new(1, 1, 2, 2)).px[0];
     assert!(px[0] < 0.01 && px[1] > 0.99 && px[2] > 0.99, "red inverted to cyan: {px:?}");
     assert!(s.execute("file.automate.batch", json!({"steps": [["no.such.command", {}]], "input": input, "output": out})).is_err());
+    let mut native = Document::new("indexed", photocraft_doc::Size::new(2, 1), photocraft_color::ColorMode::Indexed, photocraft_color::SampleType::U8);
+    native.color_table = Some(photocraft_doc::ColorTable { colors: vec![[255, 0, 0], [255, 0, 0]], transparent: None });
+    let fmt = native.pixel_format();
+    let mut layer = Layer::raster("duplicate indices", fmt);
+    let red = photocraft_raster::from_rgba(&fmt, [1.0, 0.0, 0.0, 1.0]);
+    let mut row = red.clone();
+    row.extend_from_slice(&red);
+    layer.surface_mut().unwrap().write_region(Rect::new(0, 0, 2, 1), &row);
+    let mut indexed = photocraft_doc::IndexedPixels::new();
+    assert!(indexed.set_sample(0, 0, 0, 1.0));
+    assert!(indexed.set_sample(1, 0, 1, 1.0));
+    layer.indexed_pixels = Some(indexed);
+    native.layers.push(layer);
+    let bytes = photocraft_format::save_to_bytes(&native, &Default::default()).unwrap();
+    let path = join(&dir, "indexed.pcraft");
+    std::fs::write(&path, bytes).unwrap();
+    s.execute("file.scripts.loadFilesIntoStack", json!({"paths": [path]})).unwrap();
+    assert_eq!(doc(&s).mode, photocraft_color::ColorMode::Indexed);
+    assert_eq!(doc(&s).color_table.as_ref().unwrap().colors, [[255, 0, 0], [255, 0, 0]]);
+    let pixels = doc(&s).layers[0].indexed_pixels.as_ref().unwrap();
+    assert_eq!(pixels.sample(0, 0), Some((0, 1.0)));
+    assert_eq!(pixels.sample(1, 0), Some((1, 1.0)));
 }
 
 #[test]

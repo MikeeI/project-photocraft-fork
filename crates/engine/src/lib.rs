@@ -371,6 +371,7 @@ impl Session {
         if let (Some(k), Some(id)) = (restrict, active) {
             channel_cmds::restrict_to_color(&before, &mut doc, id, k);
         }
+        mode_cmds::reconcile_indexed_pixels(&before, &mut doc)?;
         st.doc = Arc::new(doc);
         st.active_layer = active;
         fix_selection(st);

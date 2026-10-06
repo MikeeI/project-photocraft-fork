@@ -166,6 +166,10 @@ fn tile_bytes(doc: &Document, seen: &mut HashSet<usize>) -> usize {
         if let Some(s) = l.surface() {
             n += add(s);
         }
+        if let Some(indexed) = &l.indexed_pixels {
+            n += add(indexed.assignments());
+            n += add(indexed.alpha());
+        }
         if let Some(m) = &l.mask {
             n += add(&m.surface);
         }
