@@ -7,7 +7,7 @@
 //! change them with `prefs.get` / `prefs.set`); this module only edits a working copy in a dialog
 //! and commits it with those commands on OK.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use egui::{Color32, RichText, Sense, vec2};
 use photocraft_doc::DocId;
@@ -19,7 +19,7 @@ use crate::PhotocraftApp;
 use crate::state::DialogKind;
 use crate::theme::{ThemeKind, Tokens};
 
-/// Shell runtime state for preferences, autosave and snapping (not serialised).
+/// Shell runtime state for preferences, autosave, recovery and snapping (not serialised).
 #[derive(Default)]
 pub struct Runtime {
     loaded: bool,
@@ -27,6 +27,10 @@ pub struct Runtime {
     theme_pref: Option<Theme>,
     next_autosave_ms: f64,
     autosaved: HashMap<DocId, u64>,
+    /// Stable disk recovery keys owned by documents admitted with remapped runtime IDs.
+    recovery_origins: HashMap<DocId, String>,
+    /// Recovery entries the user explicitly chose to discard after closing a document.
+    pending_recovery_discards: HashSet<DocId>,
     log_len: usize,
     /// Snapping state of the drag in progress (see `snap_ui`).
     pub(crate) snap: Option<crate::snap_ui::ActiveSnap>,
@@ -107,18 +111,32 @@ pub fn load(app: &mut PhotocraftApp) {
     if app.session.prefs().file_handling.recover_on_launch
         && let Some(recover) = app.services.recover.as_mut()
     {
-        let docs = recover();
-        let n = docs.len();
-        for (path, doc) in docs {
-            app.session.add_document(doc, path);
-            // Recovered documents are unsaved.
-            if let Some(st) = app.session.active_mut() {
-                st.saved_revision = 0;
+        let mut recovered_count = 0;
+        let mut failures = Vec::new();
+        for outcome in recover() {
+            match outcome {
+                Ok(recovered) => {
+                    let index = app.session.add_document(recovered.document, recovered.original_path);
+                    let id = app.session.documents()[index].doc.id;
+                    app.prefs_rt.recovery_origins.insert(id, recovered.key);
+                    // Recovered documents are unsaved.
+                    if let Some(st) = app.session.active_mut() {
+                        st.saved_revision = 0;
+                    }
+                    recovered_count += 1;
+                }
+                Err(failure) => failures.push(format!("{}: {}", failure.key, failure.error)),
             }
         }
-        if n > 0 {
+        if recovered_count > 0 {
             app.sync_views();
-            app.ui.status = format!("Recovered {n} document{}", if n == 1 { "" } else { "s" });
+            app.ui.status = format!("Recovered {recovered_count} document{}", if recovered_count == 1 { "" } else { "s" });
+        }
+        if !failures.is_empty() {
+            let title = format!("{} recovery {} could not be loaded", failures.len(), if failures.len() == 1 { "entry" } else { "entries" });
+            app.ui.status = title.clone();
+            app.ui.status_error = true;
+            crate::notices::post(app, title, failures, true);
         }
     }
 }
@@ -231,13 +249,14 @@ fn autosave(app: &mut PhotocraftApp) {
         return;
     }
     let now = crate::gpu_canvas::now_ms();
-    // Saved or closed documents drop their recovery data.
+    // A closed recovered document can still own the only durable copy of its unsaved changes.
     let live: HashMap<DocId, bool> = app.session.documents().iter().map(|d| (d.doc.id, d.is_dirty())).collect();
-    let stale: Vec<DocId> = app.prefs_rt.autosaved.keys().filter(|id| live.get(id) != Some(&true)).copied().collect();
+    let stale: Vec<DocId> =
+        app.prefs_rt.autosaved.keys().filter(|id| live.get(id) != Some(&true) && !app.prefs_rt.recovery_origins.contains_key(id)).copied().collect();
     for id in stale {
         app.prefs_rt.autosaved.remove(&id);
-        if let Some(d) = app.services.discard_autosave.as_mut() {
-            d(id.0);
+        if let Some(discard) = app.services.discard_autosave.as_mut() {
+            discard(id.0);
         }
     }
     if !on {
@@ -257,18 +276,53 @@ fn autosave(app: &mut PhotocraftApp) {
         .documents()
         .iter()
         .filter(|d| d.is_dirty() && app.prefs_rt.autosaved.get(&d.doc.id) != Some(&d.revision))
-        .map(|d| (d.doc.clone(), d.revision, d.path.clone()))
+        .map(|d| (d.doc.clone(), d.revision, d.path.clone(), app.prefs_rt.recovery_origins.get(&d.doc.id).cloned()))
         .collect();
-    for (doc, rev, path) in jobs {
+    for (doc, revision, path, recovery_key) in jobs {
         if let Some(save) = app.services.autosave.as_mut() {
-            match save(&doc, rev, path.as_deref()) {
+            match save(&doc, revision, path.as_deref(), recovery_key.as_deref()) {
                 Ok(()) => {
-                    app.prefs_rt.autosaved.insert(doc.id, rev);
+                    app.prefs_rt.autosaved.insert(doc.id, revision);
                 }
-                Err(e) => app.ui.status = format!("Autosave failed: {e}"),
+                Err(error) => app.ui.status = format!("Autosave failed: {error}"),
             }
         }
     }
+}
+
+/// Retry source cleanup after a successful user action, never once per frame.
+/// Missing documents remain untouched unless an explicit Don't Save decision is pending.
+pub(crate) fn retry_recovery_cleanup(app: &mut PhotocraftApp) {
+    let eligible: Vec<DocId> = app
+        .prefs_rt
+        .recovery_origins
+        .keys()
+        .copied()
+        .filter(|id| {
+            app.prefs_rt.pending_recovery_discards.contains(id) || app.session.documents().iter().any(|state| state.doc.id == *id && !state.is_dirty())
+        })
+        .collect();
+    for id in eligible {
+        if let Err(error) = discard_recovery_for_doc(app, id) {
+            crate::notices::error(app, format!("Couldn't remove recovery entry: {error}"));
+        }
+    }
+}
+
+pub(crate) fn mark_recovery_discard(app: &mut PhotocraftApp, id: DocId) {
+    if app.prefs_rt.recovery_origins.contains_key(&id) {
+        app.prefs_rt.pending_recovery_discards.insert(id);
+    }
+}
+
+pub(crate) fn discard_recovery_for_doc(app: &mut PhotocraftApp, id: DocId) -> Result<(), String> {
+    let Some(key) = app.prefs_rt.recovery_origins.get(&id).cloned() else { return Ok(()) };
+    let discard = app.services.discard_recovery.as_mut().ok_or("recovery cleanup is not configured")?;
+    discard(&key)?;
+    app.prefs_rt.recovery_origins.remove(&id);
+    app.prefs_rt.pending_recovery_discards.remove(&id);
+    app.prefs_rt.autosaved.remove(&id);
+    Ok(())
 }
 
 /// Force the autosave timer to fire on the next tick (tests, `prefs` changes).
@@ -1407,7 +1461,7 @@ mod tests {
         let saved: Saved = Arc::default();
         let s2 = saved.clone();
         let services = crate::Services {
-            autosave: Some(Box::new(move |doc: &Arc<photocraft_doc::Document>, rev: u64, _path: Option<&str>| {
+            autosave: Some(Box::new(move |doc: &Arc<photocraft_doc::Document>, rev: u64, _path: Option<&str>, _key: Option<&str>| {
                 s2.lock().unwrap().push((doc.id.0, rev));
                 Ok(())
             })),
@@ -1466,5 +1520,106 @@ mod tests {
         assert_eq!(app.ui.dialogs.iter().find(|x| x.id == d).unwrap().fields["width"], 8);
         let d = crate::menus::invoke(&mut app, &ctx, "edit.presets.presetManager", json!({})).unwrap()["dialog"].as_u64().unwrap();
         assert!(crate::dialogs::confirm(&mut app, d).is_ok());
+    }
+    fn recovery_doc() -> photocraft_doc::Document {
+        photocraft_doc::Document::new("Recovered", photocraft_doc::Size::new(8, 8), photocraft_color::ColorMode::Rgb, photocraft_color::SampleType::U8)
+    }
+
+    fn recovery_session(document: &photocraft_doc::Document) -> photocraft_engine::Session {
+        let mut session = photocraft_engine::Session::new();
+        session.edit_prefs(|prefs| {
+            prefs.file_handling.recover_on_launch = true;
+            prefs.file_handling.autosave = true;
+        });
+        session.add_document(document.clone(), None);
+        session
+    }
+
+    #[test]
+    fn recovered_autosave_keeps_its_source_key_until_successful_save() {
+        let document = recovery_doc();
+        let session = recovery_session(&document);
+        let source_id = document.id;
+        let recovered_document = document.clone();
+        let autosaved = Arc::new(Mutex::new(None));
+        let autosaved_call = autosaved.clone();
+        let discarded = Arc::new(Mutex::new(Vec::<String>::new()));
+        let discarded_call = discarded.clone();
+        let services = crate::Services {
+            recover: Some(Box::new(move || {
+                vec![Ok(crate::RecoveredDocument { key: "doc-source".into(), original_path: None, document: recovered_document.clone() })]
+            })),
+            autosave: Some(Box::new(move |doc, _revision, _path, key| {
+                *autosaved_call.lock().unwrap() = Some((doc.id.0, key.map(str::to_owned)));
+                Ok(())
+            })),
+            discard_recovery: Some(Box::new(move |key| {
+                discarded_call.lock().unwrap().push(key.to_owned());
+                Ok(())
+            })),
+            export: Some(Box::new(|_, _, _| Ok((vec![1], Vec::new())))),
+            write: Some(Box::new(|_, _| Ok(()))),
+            ..Default::default()
+        };
+        let mut app = PhotocraftApp::new(session, services);
+        let recovered_id = app.session.documents()[1].doc.id;
+        assert_ne!(recovered_id, source_id, "the admitted recovered document gets a unique session ID");
+
+        autosave_now(&mut app);
+        autosave(&mut app);
+        assert_eq!(autosaved.lock().unwrap().as_ref().map(|(id, key)| (*id, key.as_deref())), Some((recovered_id.0, Some("doc-source"))),);
+
+        app.services.write = Some(Box::new(|_, _| Err("disk full".into())));
+        assert!(app.save_as(Some("recovered.pcraft".into())).is_err());
+        assert!(app.prefs_rt.recovery_origins.contains_key(&recovered_id));
+        assert!(discarded.lock().unwrap().is_empty());
+
+        app.services.write = Some(Box::new(|_, _| Ok(())));
+        app.save_as(Some("recovered.pcraft".into())).unwrap();
+        assert_eq!(discarded.lock().unwrap().as_slice(), &[String::from("doc-source")]);
+        assert!(!app.prefs_rt.recovery_origins.contains_key(&recovered_id));
+    }
+
+    #[test]
+    fn direct_engine_close_preserves_recovery_source_without_explicit_discard() {
+        let document = recovery_doc();
+        let session = recovery_session(&document);
+        let recovered_document = document.clone();
+        let discarded = Arc::new(Mutex::new(Vec::<String>::new()));
+        let discarded_call = discarded.clone();
+        let services = crate::Services {
+            recover: Some(Box::new(move || {
+                vec![Ok(crate::RecoveredDocument { key: "doc-source".into(), original_path: None, document: recovered_document.clone() })]
+            })),
+            discard_recovery: Some(Box::new(move |key| {
+                discarded_call.lock().unwrap().push(key.to_owned());
+                Ok(())
+            })),
+            ..Default::default()
+        };
+        let mut app = PhotocraftApp::new(session, services);
+        let recovered_id = app.session.documents()[1].doc.id;
+
+        app.run("file.close", json!({"document": 1})).unwrap();
+
+        assert!(app.session.documents().iter().all(|state| state.doc.id != recovered_id));
+        assert_eq!(app.prefs_rt.recovery_origins.get(&recovered_id).map(String::as_str), Some("doc-source"));
+        assert!(discarded.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn failed_recovery_is_reported_without_adding_a_document() {
+        let mut session = photocraft_engine::Session::new();
+        session.edit_prefs(|prefs| prefs.file_handling.recover_on_launch = true);
+        let services = crate::Services {
+            recover: Some(Box::new(|| vec![Err(crate::RecoveryFailure { key: "doc-broken".into(), error: "manifest is corrupt".into() })])),
+            ..Default::default()
+        };
+
+        let app = PhotocraftApp::new(session, services);
+
+        assert!(app.session.documents().is_empty());
+        assert_eq!(app.ui.status, "1 recovery entry could not be loaded");
+        assert!(app.ui.status_error);
     }
 }

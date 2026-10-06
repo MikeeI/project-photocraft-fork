@@ -161,12 +161,25 @@ pub type Inbox = std::sync::Arc<std::sync::Mutex<Vec<(String, Vec<u8>)>>>;
 pub type LoadTextFn = Box<dyn FnMut() -> Option<String>>;
 /// Persist the preferences text.
 pub type SaveTextFn = Box<dyn FnMut(&str) -> Result<(), String>>;
-/// Autosave a document snapshot for crash recovery: (snapshot, revision, original path).
-pub type AutosaveFn = Box<dyn FnMut(&std::sync::Arc<Document>, u64, Option<&str>) -> Result<(), String>>;
-/// Drop the recovery data of a document (by `DocId` value) once it is saved or closed.
+/// Autosave a document snapshot for crash recovery: (snapshot, revision, original path, stable recovery key).
+pub type AutosaveFn = Box<dyn FnMut(&std::sync::Arc<Document>, u64, Option<&str>, Option<&str>) -> Result<(), String>>;
+/// Remove ordinary autosave data after its document is saved or closed.
 pub type DiscardAutosaveFn = Box<dyn FnMut(u64)>;
-/// Load recoverable documents left by a previous session: (original path, document).
-pub type RecoverFn = Box<dyn FnMut() -> Vec<(Option<String>, Document)>>;
+/// One successfully loaded recovery entry, still owned by its source key until durable replacement or explicit discard.
+pub struct RecoveredDocument {
+    pub key: String,
+    pub original_path: Option<String>,
+    pub document: Document,
+}
+/// A listed recovery entry whose bundle could not be loaded.
+pub struct RecoveryFailure {
+    pub key: String,
+    pub error: String,
+}
+/// Delete a recovered source entry after a durable save or explicit discard.
+pub type DiscardRecoveryFn = Box<dyn FnMut(&str) -> Result<(), String>>;
+/// Load recoverable documents left by a previous session, reporting each entry independently.
+pub type RecoverFn = Box<dyn FnMut() -> Vec<Result<RecoveredDocument, RecoveryFailure>>>;
 /// Append text to a file (History Log).
 pub type AppendTextFn = Box<dyn FnMut(&str, &str) -> Result<(), String>>;
 /// Requests from the operating system since the last call (see [`OsEvent`]).
@@ -207,6 +220,7 @@ pub struct Services {
     /// Crash-recovery autosave (Preferences › File Handling) and recovery at launch.
     pub autosave: Option<AutosaveFn>,
     pub discard_autosave: Option<DiscardAutosaveFn>,
+    pub discard_recovery: Option<DiscardRecoveryFn>,
     pub recover: Option<RecoverFn>,
     /// History Log text file output.
     pub append_text: Option<AppendTextFn>,
@@ -499,6 +513,9 @@ impl PhotocraftApp {
                 self.ui.status_error = true;
             }
         }
+        if r.is_ok() {
+            prefs_ui::retry_recovery_cleanup(self);
+        }
         if suppress_events {
             self.session.edit_prefs(|prefs| prefs.script_events.enabled = true);
         }
@@ -675,6 +692,7 @@ impl PhotocraftApp {
         self.ui.status_error = false;
         notices::io_warnings(self, &format!("Saved {}", file_open::display_name(&path)), &warnings);
         self.sync_views();
+        prefs_ui::retry_recovery_cleanup(self);
         Ok((path, warnings))
     }
 
@@ -696,6 +714,7 @@ impl PhotocraftApp {
         self.ui.status_error = false;
         notices::io_warnings(self, &format!("Saved {}", file_open::display_name(&target)), &warnings);
         self.sync_views();
+        prefs_ui::retry_recovery_cleanup(self);
         Ok((target, warnings))
     }
 

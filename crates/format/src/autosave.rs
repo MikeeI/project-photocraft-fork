@@ -53,8 +53,17 @@ pub struct Autosaver {
     last: Arc<Mutex<Option<Result<SaveStats>>>>,
 }
 
+fn is_valid_recovery_key_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '-' || c == '_'
+}
+
+/// Whether a sidecar key can safely name a bundle and sidecar under the recovery directory.
+pub fn is_valid_recovery_key(key: &str) -> bool {
+    !key.is_empty() && key.chars().all(is_valid_recovery_key_char)
+}
+
 fn sanitize(key: &str) -> String {
-    let s: String = key.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+    let s: String = key.chars().map(|c| if is_valid_recovery_key_char(c) { c } else { '_' }).collect();
     if s.is_empty() { "untitled".into() } else { s }
 }
 
@@ -102,7 +111,7 @@ impl Autosaver {
         self.last_result()
     }
 
-    /// The document was saved normally or closed: drop its recovery data.
+    /// The document was durably saved or explicitly discarded: drop its recovery data.
     pub fn discard(mut self) -> Result<()> {
         self.shutdown();
         remove_entry(&self.dir, &self.key)
@@ -152,6 +161,7 @@ pub fn list_recovery(recovery_dir: &Path) -> Vec<RecoveryEntry> {
         if p.extension().is_some_and(|x| x == "json")
             && let Ok(bytes) = std::fs::read(&p)
             && let Ok(info) = serde_json::from_slice::<RecoveryInfo>(&bytes)
+            && is_valid_recovery_key(&info.key)
         {
             let bundle = recovery_dir.join(format!("{}.pcraft", info.key));
             if bundle.join(crate::store::MANIFEST).is_file() {
@@ -170,6 +180,9 @@ pub fn recover(entry: &RecoveryEntry) -> Result<Document> {
 
 /// Delete a recovery entry.
 pub fn discard_recovery(recovery_dir: &Path, entry: &RecoveryEntry) -> Result<()> {
+    if !is_valid_recovery_key(&entry.info.key) {
+        return Err(crate::FormatError::corrupt("invalid recovery key"));
+    }
     remove_entry(recovery_dir, &entry.info.key)
 }
 

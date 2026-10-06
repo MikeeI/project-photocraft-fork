@@ -19,6 +19,8 @@ pub struct Prompt {
     /// The document the command was aimed at (`document` param, else the active one), if it has one.
     target: Option<DocId>,
     docs: Vec<DocId>,
+    /// Documents explicitly chosen for Don't Save; cleanup waits until the parked action succeeds.
+    discarded: Vec<DocId>,
 }
 
 fn index_of(app: &PhotocraftApp, id: DocId) -> Option<usize> {
@@ -63,7 +65,7 @@ pub fn intercept(app: &mut PhotocraftApp, id: &str, params: &Value) -> bool {
     if docs.is_empty() {
         return false;
     }
-    let prompt = Prompt { id: id.to_string(), params: params.clone(), target, docs };
+    let prompt = Prompt { id: id.to_string(), params: params.clone(), target, docs, discarded: Vec::new() };
     match &app.discard {
         None => app.discard = Some(prompt),
         // Quitting overrides whatever is pending: it covers every document, so nothing is lost.
@@ -97,8 +99,15 @@ fn advance(app: &mut PhotocraftApp, ctx: &egui::Context) {
     if !p.docs.is_empty() {
         return;
     }
-    let Some(Prompt { id, mut params, target, .. }) = app.discard.take() else { return };
+    let Some(Prompt { id, mut params, target, discarded, .. }) = app.discard.take() else { return };
     if id == EXIT {
+        for doc in discarded {
+            crate::prefs_ui::mark_recovery_discard(app, doc);
+            if let Err(error) = crate::prefs_ui::discard_recovery_for_doc(app, doc) {
+                crate::notices::error(app, format!("Couldn't remove recovery entry: {error}"));
+                return;
+            }
+        }
         app.allow_close = true;
         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         return;
@@ -108,9 +117,19 @@ fn advance(app: &mut PhotocraftApp, ctx: &egui::Context) {
         let Some(i) = index_of(app, target) else { return };
         params = json!({"document": i});
     }
-    if let Err(e) = crate::menus::invoke_unguarded(app, ctx, &id, params) {
-        app.ui.status = e;
-        app.ui.status_error = true;
+    match crate::menus::invoke_unguarded(app, ctx, &id, params) {
+        Ok(_) => {
+            for doc in discarded {
+                crate::prefs_ui::mark_recovery_discard(app, doc);
+                if let Err(error) = crate::prefs_ui::discard_recovery_for_doc(app, doc) {
+                    crate::notices::error(app, format!("Couldn't remove recovery entry: {error}"));
+                }
+            }
+        }
+        Err(error) => {
+            app.ui.status = error;
+            app.ui.status_error = true;
+        }
     }
 }
 
@@ -174,6 +193,12 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
     if cancel {
         app.discard = None;
     } else if discard_it || (save_it && save(app, ctx, doc)) {
+        if discard_it
+            && !reverts
+            && let Some(prompt) = app.discard.as_mut()
+        {
+            prompt.discarded.push(doc);
+        }
         advance(app, ctx);
     }
 }
@@ -316,5 +341,43 @@ mod tests {
         app.allow_close = true;
         assert!(!press_window_close(&mut app));
         assert!(app.discard.is_none());
+    }
+
+    #[test]
+    fn clicking_dont_save_removes_the_recovery_source() {
+        use egui_kittest::{Harness, kittest::Queryable};
+        use std::sync::{Arc, Mutex};
+
+        let document =
+            photocraft_doc::Document::new("Recovered", photocraft_doc::Size::new(8, 8), photocraft_color::ColorMode::Rgb, photocraft_color::SampleType::U8);
+        let recovered_document = document.clone();
+        let removed = Arc::new(Mutex::new(None));
+        let removed_call = removed.clone();
+        let mut session = photocraft_engine::Session::new();
+        session.edit_prefs(|prefs| prefs.file_handling.recover_on_launch = true);
+        let services = crate::Services {
+            recover: Some(Box::new(move || {
+                vec![Ok(crate::RecoveredDocument { key: "doc-source".into(), original_path: None, document: recovered_document.clone() })]
+            })),
+            discard_recovery: Some(Box::new(move |key| {
+                *removed_call.lock().unwrap() = Some(key.to_owned());
+                Ok(())
+            })),
+            ..Default::default()
+        };
+        let mut harness = Harness::builder().with_size(egui::vec2(1200.0, 900.0)).with_max_steps(64).build_eframe(move |cc| {
+            PhotocraftApp::setup_context(&cc.egui_ctx, crate::theme::ThemeKind::ALL[0]);
+            let mut app = PhotocraftApp::new(session, services);
+            app.run("layer.new.layer", json!({})).unwrap();
+            app
+        });
+        let ctx = harness.ctx.clone();
+        crate::menus::invoke(harness.state_mut(), &ctx, "file.close", json!({"document": 0})).unwrap();
+        harness.run_steps(3);
+        harness.get_by_label("Don't Save").click();
+        harness.run_steps(3);
+
+        assert!(harness.state().session.documents().is_empty());
+        assert_eq!(removed.lock().unwrap().as_deref(), Some("doc-source"));
     }
 }

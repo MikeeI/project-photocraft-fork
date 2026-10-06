@@ -66,3 +66,25 @@ fn list_ignores_junk() {
     assert!(list_recovery(&dir.join("missing")).is_empty());
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn recovery_keys_cannot_escape_the_recovery_directory() {
+    let root = temp_dir("unsafe-key");
+    let dir = root.join("Recovery");
+    let outside_bundle = root.join("outside.pcraft");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::create_dir_all(&outside_bundle).unwrap();
+    let marker = outside_bundle.join("keep");
+    std::fs::write(&marker, b"preserve").unwrap();
+    std::fs::write(outside_bundle.join("manifest.json"), b"{}").unwrap();
+
+    let info =
+        photocraft_format::autosave::RecoveryInfo { key: "../outside".into(), document_name: "Unsafe".into(), original_path: None, saved_at: 1, revision: 1 };
+    std::fs::write(dir.join("unsafe.json"), serde_json::to_vec(&info).unwrap()).unwrap();
+    assert!(list_recovery(&dir).is_empty());
+
+    let entry = RecoveryEntry { info, bundle: outside_bundle };
+    assert!(discard_recovery(&dir, &entry).is_err());
+    assert!(marker.is_file(), "invalid recovery keys must not delete paths outside the recovery directory");
+    std::fs::remove_dir_all(root).unwrap();
+}
